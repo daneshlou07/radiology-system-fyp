@@ -540,65 +540,6 @@ function getNavGroups(
         },
         {
           title: t(
-            'EQUIPMENT MARKETPLACE',
-            'PASARAN PERALATAN'
-          ),
-          items: [
-            {
-              label: t(
-                'Medical Equipment',
-                'Peralatan Perubatan'
-              ),
-              path: '/marketplace/medical',
-              icon: (
-                <Stethoscope className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Non-Medical Equipment',
-                'Peralatan Bukan Perubatan'
-              ),
-              path: '/marketplace/non-medical',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Orders & Quotations',
-                'Pesanan & Sebut Harga'
-              ),
-              path: '/marketplace/orders',
-              icon: (
-                <ClipboardList className="w-[18px] h-[18px]" />
-              ),
-              badge: pendingOrders,
-            },
-            {
-              label: t(
-                'Equipment Management',
-                'Pengurusan Peralatan'
-              ),
-              path: '/marketplace/manage-items',
-              icon: (
-                <Package className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Browse All Equipment',
-                'Lihat Semua Peralatan'
-              ),
-              path: '/marketplace',
-              icon: (
-                <ShoppingBag className="w-[18px] h-[18px]" />
-              ),
-            },
-          ],
-        },
-        {
-          title: t(
             'SYSTEM',
             'SISTEM'
           ),
@@ -723,7 +664,7 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
     case 'fleet':
       return t('Mobile Fleet Management', 'Pengurusan Armada');
     case 'clinics':
-      return t('Clinic Management', 'Pengurusan Klinik');
+      return t('Clinic & Machine Management', 'Pengurusan Klinik & Mesin');
     case 'users':
       return t('User Management', 'Pengurusan Pengguna');
     case 'announcements':
@@ -733,16 +674,6 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
 
     case 'tech_stack':
       return t('Technology Stack', 'Timbunan Teknologi');
-    case 'marketplace_medical':
-      return t('Medical Equipment', 'Peralatan Perubatan');
-    case 'marketplace_non_medical':
-      return t('Non-Medical Equipment', 'Peralatan Bukan Perubatan');
-    case 'marketplace_orders':
-      return t('Orders & Quotations', 'Pesanan & Sebut Harga');
-    case 'marketplace_manage':
-      return t('Equipment Management', 'Pengurusan Peralatan');
-    case 'marketplace_all':
-      return t('Browse All Equipment', 'Lihat Semua Peralatan');
     default:
       return defaultLabel;
   }
@@ -764,8 +695,6 @@ function getCategoryTitle(category: string, role: UserRole, t: (en: string, ms: 
         : t('IMAGING & TECHNICAL', 'PENGIMEJAN & TEKNIKAL');
     case 'Operations & Fleet':
       return t('OPERATIONS & FLEET', 'OPERASI & LOGISTIK');
-    case 'Equipment Marketplace':
-      return t('EQUIPMENT MARKETPLACE', 'PASARAN PERALATAN');
     case 'Administration & Governance':
       return t('SYSTEM', 'SISTEM');
     default:
@@ -823,8 +752,24 @@ export default function Sidebar({
     t
   );
 
+  const excludedNavKeys = new Set([
+    'recycle_bin',
+    'audit_logs',
+    'bems',
+    'public_admin',
+    'private_admin',
+    'external_radiographer',
+    'ai_scheduler',
+    'fleet',
+    'announcements',
+    'analytics',
+    'tech_stack',
+    'credentials',
+    'patient_requests',
+    'reports',
+  ]);
   let activeKeys = (roleNavigationConfig?.[effectiveRole] || DEFAULT_ROLE_NAV_CONFIG[effectiveRole] || []).filter(
-    (k) => k !== 'recycle_bin' && k !== 'audit_logs'
+    (k) => !excludedNavKeys.has(k) && !k.startsWith('marketplace_')
   );
   if (effectiveRole === 'BEMS Officer' || effectiveRole === 'BEMS' || effectiveRole === 'BEMZ') {
     activeKeys = activeKeys.filter((k) => k !== 'bems');
@@ -861,7 +806,6 @@ export default function Sidebar({
       'Clinical Core',
       'Imaging & Technical',
       'Operations & Fleet',
-      'Equipment Marketplace',
       'Administration & Governance',
     ];
 

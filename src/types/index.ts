@@ -92,6 +92,7 @@ export interface HealthcareCenter {
   status: EntityStatus;
   googlePlaceId?: string;
   supportedModalities?: string[];
+  machineStatus?: Record<string, 'Active' | 'Maintenance'>;
   maxDailyCapacity?: number;
 }
 

@@ -396,7 +396,7 @@ export default function RadiographerWorkspace({ initialTab }: { initialTab?: 'qu
       };
 
       await editCase(selectedCase.id, {
-        status: 'IMAGES_AVAILABLE',
+        status: 'SCANNED',
         images: updatedImages,
         scannedAt: new Date().toISOString(),
         radiographerFindings: radiographerFindings.trim() || undefined,

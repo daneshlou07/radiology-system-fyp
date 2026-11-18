@@ -18,13 +18,10 @@ import {
   Sparkles,
   Building2,
   UserCheck,
-  Users,
   Wrench,
-  Layers,
   Hospital,
 } from 'lucide-react';
 import { saveUser, sanitizeUserRole } from '../../services/dataService';
-import RoleNavigationManager from '../../components/admin/RoleNavigationManager';
 
 const ROLES: UserRole[] = [
   'Medical Officer',
@@ -70,7 +67,6 @@ export default function UsersManagement() {
   const [orgTypeFilter, setOrgTypeFilter] = useState<string>('all');
   const [centerFilter, setCenterFilter] = useState<string>('all');
   const [shiftFilter, setShiftFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'accounts' | 'permissions'>('accounts');
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -601,42 +597,9 @@ export default function UsersManagement() {
       </div>
 
       {/* =====================================================
-          TABS: DIRECTORY VS PERMISSION MATRIX
+          CREDENTIAL NOTIFICATION BANNER
       ====================================================== */}
-      <div className="flex border-b border-surface-200 gap-6">
-        <button
-          type="button"
-          onClick={() => setActiveTab('accounts')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'accounts'
-            ? 'border-[#0F4C42] text-[#0F4C42]'
-            : 'border-transparent text-surface-500 hover:text-surface-800'
-            }`}
-        >
-          <Users className="w-4 h-4" />
-          User Directory ({visibleAccounts.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('permissions')}
-          className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'permissions'
-            ? 'border-[#0F4C42] text-[#0F4C42]'
-            : 'border-transparent text-surface-500 hover:text-surface-800'
-            }`}
-        >
-          <Layers className="w-4 h-4" />
-          Role Permission Matrix
-        </button>
-      </div>
-
-      {activeTab === 'permissions' ? (
-        <RoleNavigationManager />
-      ) : (
-        <>
-          {/* =====================================================
-              CREDENTIAL NOTIFICATION BANNER
-          ====================================================== */}
-          {createdCredentials && (
+      {createdCredentials && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -1293,8 +1256,6 @@ export default function UsersManagement() {
               </table>
             </div>
           </div>
-        </>
-      )}
 
       {/* =====================================================
           CREATE / EDIT MODAL

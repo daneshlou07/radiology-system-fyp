@@ -139,10 +139,17 @@ export default function NewCaseRegistration() {
     return map;
   }, [users]);
 
-  // Compute nearest clinic for the selected patient factoring in radiographers & distance
+  // Compute nearest clinic for the selected patient factoring in active machine status, radiographers & distance
   const nearestClinicForPatient = useMemo(() => {
     if (!selectedPatient) return null;
-    const activeClinics = uniqueClinics.filter((c) => c.status === 'active' || !c.status);
+    const activeClinics = uniqueClinics.filter((c) => {
+      if (c.status && c.status !== 'active') return false;
+      if (c.machineStatus?.[modality] === 'Maintenance') return false;
+      if (c.supportedModalities && c.supportedModalities.length > 0 && !c.supportedModalities.includes(modality)) {
+        return false;
+      }
+      return true;
+    });
     if (activeClinics.length === 0) return null;
 
     if (selectedPatient.latitude && selectedPatient.longitude) {
@@ -174,7 +181,7 @@ export default function NewCaseRegistration() {
       if (found) return { clinic: found, distanceKm: 0, radCount: radiographersByClinic[found.id] || 0 };
     }
     return null;
-  }, [selectedPatient, uniqueClinics, radiographersByClinic]);
+  }, [selectedPatient, uniqueClinics, radiographersByClinic, modality]);
 
   // When patient changes, automatically default to AI recommended facility unless manual override is toggled
   React.useEffect(() => {
@@ -363,7 +370,7 @@ export default function NewCaseRegistration() {
         bodyRegion: uniqueRegions || 'General',
         severity: severity || 'Moderate',
         notes: indication.trim(),
-        status: 'CREATED',
+        status: 'SCHEDULED',
         createdAt: new Date().toISOString(),
         scheduledAt: workflowPriority === 'Non-Emergency' && scheduledDate ? `${scheduledDate}T${scheduledTime || '09:00'}:00` : undefined,
         officeTarikhAppointment: workflowPriority === 'Non-Emergency' ? scheduledDate : undefined,

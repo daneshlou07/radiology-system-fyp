@@ -141,7 +141,7 @@ function handlePrintReport(report: Report) {
         </div>
         ${safe.suggestions ? `
         <div class="section">
-          <div class="section-title">Recommendations & Suggestions</div>
+          <div class="section-title">Recommendation</div>
           <div class="section-content">${safe.suggestions}</div>
         </div>` : ''}
         <div class="footer">
@@ -350,6 +350,13 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
       setCriticalFindingNote(selectedCase.criticalFindingNote || '');
     }
     setAiAnalysisMetadata(null);
+
+    if (
+      currentUser?.role === 'Radiologist' &&
+      (selectedCase.status === 'SCANNED' || selectedCase.status === 'IMAGES_AVAILABLE')
+    ) {
+      editCase(selectedCase.id, { status: 'RADIOLOGIST_REVIEW' }).catch(() => {});
+    }
   }, [selectedCase?.id, existingReport]);
 
   // AI Clinical Decision Support System (CDSS) draft generator
@@ -1369,7 +1376,7 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                         <Sparkles
                           className={`w-3.5 h-3.5 ${isVisionAiAnalyzing ? 'animate-pulse text-[#0F4C42]' : ''}`}
                         />
-                        {isVisionAiAnalyzing ? 'Evaluating Patient History & Pixels…' : 'Generate Clinical CDSS Draft'}
+                        {isVisionAiAnalyzing ? 'Evaluating Patient History & Pixels…' : 'Generate Draft Observations'}
                       </button>
                     )}
                   </div>
@@ -1584,7 +1591,7 @@ export default function DiagnosticHub({ initialTab }: DiagnosticHubProps) {
                   {/* Recommendations */}
                   <div>
                     <label className="block text-xs font-bold text-slate-900 mb-1">
-                      Clinical Recommendations / Suggestions
+                      Recommendation
                     </label>
 
                     <p className="text-[10px] text-slate-400 mb-2">

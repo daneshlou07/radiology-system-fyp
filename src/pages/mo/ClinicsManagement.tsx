@@ -84,6 +84,7 @@ export default function ClinicsManagement() {
     latitude: string;
     longitude: string;
     modalities: string[];
+    machineStatus: Record<string, 'Active' | 'Maintenance'>;
     operatingHours: string;
   }>({
     name: '',
@@ -95,6 +96,7 @@ export default function ClinicsManagement() {
     latitude: '',
     longitude: '',
     modalities: [] as string[],
+    machineStatus: {},
     operatingHours: '08:00 – 17:00',
   });
 
@@ -135,6 +137,7 @@ export default function ClinicsManagement() {
       latitude: '',
       longitude: '',
       modalities: [],
+      machineStatus: {},
       operatingHours: '08:00 – 17:00',
     });
     setShowModal(true);
@@ -144,6 +147,10 @@ export default function ClinicsManagement() {
     setEditing(clinic);
     const coords = clinic.latitude && clinic.longitude ? `${clinic.latitude}, ${clinic.longitude}` : '';
     setRawCoordinates(coords);
+    const initialMachines: Record<string, 'Active' | 'Maintenance'> = {};
+    (clinic.supportedModalities || []).forEach((m) => {
+      initialMachines[m] = clinic.machineStatus?.[m] || 'Active';
+    });
     setForm({
       name: clinic.name,
       organizationType: clinic.organizationType || (
@@ -160,6 +167,7 @@ export default function ClinicsManagement() {
       latitude: String(clinic.latitude),
       longitude: String(clinic.longitude),
       modalities: clinic.supportedModalities || [],
+      machineStatus: initialMachines,
       operatingHours: clinic.operatingHours || '08:00 – 17:00',
     });
     setShowModal(true);
@@ -179,6 +187,7 @@ export default function ClinicsManagement() {
         email: form.email || undefined,
         operatingHours: form.operatingHours,
         supportedModalities: form.modalities,
+        machineStatus: form.machineStatus,
         latitude: parseFloat(form.latitude) || editing.latitude,
         longitude: parseFloat(form.longitude) || editing.longitude,
       };
@@ -209,6 +218,7 @@ export default function ClinicsManagement() {
         email: form.email || undefined,
         operatingHours: form.operatingHours,
         supportedModalities: form.modalities.length ? form.modalities : ['X-Ray', 'Ultrasound'],
+        machineStatus: Object.keys(form.machineStatus).length > 0 ? form.machineStatus : { 'X-Ray': 'Active', Ultrasound: 'Active' },
         latitude: parseFloat(form.latitude) || 3.0,
         longitude: parseFloat(form.longitude) || 101.5,
         status: 'active',
@@ -265,10 +275,34 @@ export default function ClinicsManagement() {
   };
 
   const toggleModality = (mod: string) => {
-    setForm((f) => ({
-      ...f,
-      modalities: f.modalities.includes(mod) ? f.modalities.filter((m) => m !== mod) : [...f.modalities, mod],
-    }));
+    setForm((f) => {
+      const exists = f.modalities.includes(mod);
+      const nextModalities = exists ? f.modalities.filter((m) => m !== mod) : [...f.modalities, mod];
+      const nextMachineStatus = { ...f.machineStatus };
+      if (!exists && !nextMachineStatus[mod]) {
+        nextMachineStatus[mod] = 'Active';
+      }
+      return {
+        ...f,
+        modalities: nextModalities,
+        machineStatus: nextMachineStatus,
+      };
+    });
+  };
+
+  const toggleMachineStatus = async (clinic: Clinic, mod: string) => {
+    const current = clinic.machineStatus?.[mod] || 'Active';
+    const next: 'Active' | 'Maintenance' = current === 'Active' ? 'Maintenance' : 'Active';
+    const updated: Clinic = {
+      ...clinic,
+      machineStatus: {
+        ...(clinic.machineStatus || {}),
+        [mod]: next,
+      },
+    };
+    setClinics((prev) => prev.map((c) => (c.id === clinic.id ? updated : c)));
+    await saveClinic(updated);
+    toast.info(`${clinic.name} — ${mod} set to ${next}`);
   };
 
   return (
@@ -276,8 +310,8 @@ export default function ClinicsManagement() {
       {/* Page Title & Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 tracking-tight">Healthcare Management</h1>
-          <p className="text-sm text-surface-500 mt-0.5">Manage healthcare facilities, organization types, and locations.</p>
+          <h1 className="text-2xl font-bold text-surface-900 tracking-tight">Clinic & Machine Management</h1>
+          <p className="text-sm text-surface-500 mt-0.5">Manage clinics, hospitals, and scan machine status (Active or Maintenance).</p>
         </div>
         <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5 shadow-sm self-start sm:self-auto">
           <Plus className="w-4 h-4" /> Add Healthcare Center
@@ -398,6 +432,29 @@ export default function ClinicsManagement() {
                   <div className="text-[10px] text-surface-400 pt-1 font-mono">
                     Lat: {clinic.latitude?.toFixed ? clinic.latitude.toFixed(4) : clinic.latitude}, Lon: {clinic.longitude?.toFixed ? clinic.longitude.toFixed(4) : clinic.longitude}
                   </div>
+                  {clinic.supportedModalities && clinic.supportedModalities.length > 0 && (
+                    <div className="pt-2 flex flex-wrap gap-1.5">
+                      {clinic.supportedModalities.map((mod) => {
+                        const mStatus = clinic.machineStatus?.[mod] || 'Active';
+                        const isMaint = mStatus === 'Maintenance';
+                        return (
+                          <button
+                            key={mod}
+                            type="button"
+                            onClick={() => toggleMachineStatus(clinic, mod)}
+                            title={`Click to toggle ${mod} between Active and Maintenance`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer ${
+                              isMaint
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {mod}: {mStatus}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -630,24 +687,50 @@ export default function ClinicsManagement() {
             </div>
           </div>
 
-          {/* Modalities */}
+          {/* Modalities & Machine Status */}
           <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Imaging Modalities</label>
+            <label className="block text-sm font-medium text-surface-700 mb-2">Imaging Modalities & Machine Status</label>
             <div className="flex flex-wrap gap-2">
-              {MODALITIES.map((mod) => (
-                <button
-                  key={mod}
-                  type="button"
-                  onClick={() => toggleModality(mod)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    form.modalities.includes(mod)
-                      ? 'bg-navy-50 border-navy-300 text-navy-700 font-semibold'
-                      : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
-                  }`}
-                >
-                  {mod}
-                </button>
-              ))}
+              {MODALITIES.map((mod) => {
+                const selected = form.modalities.includes(mod);
+                const mStatus = form.machineStatus[mod] || 'Active';
+                return (
+                  <div key={mod} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleModality(mod)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        selected
+                          ? 'bg-navy-50 border-navy-300 text-navy-700 font-semibold'
+                          : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'
+                      }`}
+                    >
+                      {mod}
+                    </button>
+                    {selected && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            machineStatus: {
+                              ...f.machineStatus,
+                              [mod]: mStatus === 'Active' ? 'Maintenance' : 'Active',
+                            },
+                          }))
+                        }
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+                          mStatus === 'Maintenance'
+                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        }`}
+                      >
+                        {mStatus}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
