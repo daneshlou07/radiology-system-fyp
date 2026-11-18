@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "healthgrid-iq-production",
+    "staging": "healthgrid-iq-production",
+    "production": "healthgrid-iq-production"
+  },
+  "targets": {},
+  "etags": {}
+}
