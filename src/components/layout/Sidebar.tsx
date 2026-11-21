@@ -84,19 +84,9 @@ function getNavGroups(
               icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t('My Cases', 'Senarai Tugas Saya'),
+              label: t('Scan & Upload', 'Imbas & Muat Naik'),
               path: '/scan-queue',
-              icon: <Calendar className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('Upload Scans', 'Muat Naik Imbasan'),
-              path: '/upload',
               icon: <Upload className="w-[18px] h-[18px]" />,
-            },
-            {
-              label: t('My Credentials', 'Kelayakan Saya'),
-              path: '/onboarding',
-              icon: <ShieldCheck className="w-[18px] h-[18px]" />,
             },
           ],
         },
@@ -146,8 +136,8 @@ function getNavGroups(
             },
             {
               label: t(
-                'Patient Registry',
-                'Pendaftaran Pesakit'
+                'Patients',
+                'Pesakit'
               ),
               path: '/patients',
               icon: (
@@ -156,70 +146,12 @@ function getNavGroups(
             },
             {
               label: t(
-                'Register Patient',
-                'Daftar Pesakit'
-              ),
-              path: '/patients/register',
-              icon: (
-                <UserPlus className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'New Case Registration',
-                'Pendaftaran Kes Baharu'
-              ),
-              path: '/cases/new',
-              icon: (
-                <FilePlus2 className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'All Medical Cases',
-                'Semua Kes Perubatan'
+                'Cases & Status',
+                'Kes & Status'
               ),
               path: '/cases',
               icon: (
                 <FolderOpen className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Patient Requests',
-                'Permohonan Pemindahan Pesakit'
-              ),
-              path: '/requests',
-              icon: (
-                <Inbox className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Track Transfer Status',
-                'Jejak Status Pemindahan'
-              ),
-              path: '/track-status',
-              icon: (
-                <ArrowRightLeft className="w-[18px] h-[18px]" />
-              ),
-            },
-          ],
-        },
-        {
-          title: t(
-            'REPORTS & DIAGNOSTICS',
-            'LAPORAN & DIAGNOSTIK'
-          ),
-          items: [
-            {
-              label: t(
-                'Diagnostic Hub & Reports',
-                'Hab Diagnostik & Laporan'
-              ),
-              path: '/review-queue',
-              icon: (
-                <FileText className="w-[18px] h-[18px]" />
               ),
             },
           ],
@@ -314,255 +246,25 @@ function getNavGroups(
       return [];
 
     case 'Administrator':
-      return [
-        {
-          title: t(
-            'MANAGEMENT',
-            'PENGURUSAN'
-          ),
-          items: [
-            {
-              label: t(
-                'Dashboard',
-                'Papan Pemuka'
-              ),
-              path: '/dashboard',
-              icon: (
-                <House className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Clinic Management',
-                'Pengurusan Klinik'
-              ),
-              path: '/clinics',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Patient Management',
-                'Pengurusan Pesakit'
-              ),
-              path: '/patients',
-              icon: (
-                <Users className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'All Cases Overview',
-                'Gambaran Keseluruhan Kes'
-              ),
-              path: '/cases',
-              icon: (
-                <FolderOpen className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Transfer Requests',
-                'Permohonan Pemindahan'
-              ),
-              path: '/requests',
-              icon: (
-                <Truck className="w-[18px] h-[18px]" />
-              ),
-              badge: pendingRequests,
-            },
-            {
-              label: t(
-                'BEMS Referral Portal',
-                'Portal Rujukan BEMS'
-              ),
-              path: '/bems',
-              icon: (
-                <Wrench className="w-[18px] h-[18px]" />
-              ),
-              badge: pendingBems,
-            },
-            {
-              label: t(
-                'Private Hospital Referrals',
-                'Rujukan Hospital Swasta'
-              ),
-              path: '/private-admin',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'External Radiographer Hub',
-                'Hab Juruxray Luar'
-              ),
-              path: '/external-radiographer',
-              icon: (
-                <ClipboardList className="w-[18px] h-[18px]" />
-              ),
-            },
-          ],
-        },
-        {
-          title: t(
-            'SYSTEM',
-            'SISTEM'
-          ),
-          items: [
-            {
-              label: t(
-                'System Reports',
-                'Laporan Sistem'
-              ),
-              path: '/reports',
-              icon: (
-                <FileText className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'User Management',
-                'Pengurusan Pengguna'
-              ),
-              path: '/users',
-              icon: (
-                <UserCheck className="w-[18px] h-[18px]" />
-              ),
-            },
-          ],
-        },
-      ];
-
     case 'Super Admin':
       return [
         {
-          title: t(
-            'MANAGEMENT',
-            'PENGURUSAN'
-          ),
+          title: t('MANAGEMENT', 'PENGURUSAN'),
           items: [
             {
-              label: t(
-                'Dashboard',
-                'Papan Pemuka'
-              ),
+              label: t('Dashboard', 'Papan Pemuka'),
               path: '/dashboard',
-              icon: (
-                <House className="w-[18px] h-[18px]" />
-              ),
+              icon: <House className="w-[18px] h-[18px]" />,
             },
             {
-              label: t(
-                'Clinic Management',
-                'Pengurusan Klinik'
-              ),
+              label: t('Clinics & Machines', 'Klinik & Mesin'),
               path: '/clinics',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
-
-            {
-              label: t(
-                'Scheduler',
-                'Penjadual'
-              ),
-              path: '/ai-scheduler',
-              icon: (
-                <Brain className="w-[18px] h-[18px]" />
-              ),
+              icon: <Building2 className="w-[18px] h-[18px]" />,
             },
             {
-              label: t(
-                'Patient Management',
-                'Pengurusan Pesakit'
-              ),
-              path: '/patients',
-              icon: (
-                <Users className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'All Cases Overview',
-                'Gambaran Keseluruhan Kes'
-              ),
-              path: '/cases',
-              icon: (
-                <FolderOpen className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'Transfer Requests',
-                'Permohonan Pemindahan'
-              ),
-              path: '/requests',
-              icon: (
-                <Truck className="w-[18px] h-[18px]" />
-              ),
-              badge: pendingRequests,
-            },
-            {
-              label: t(
-                'BEMS Referral Portal',
-                'Portal Rujukan BEMS'
-              ),
-              path: '/bems',
-              icon: (
-                <Wrench className="w-[18px] h-[18px]" />
-              ),
-              badge: pendingBems,
-            },
-            {
-              label: t(
-                'Private Hospital Referrals',
-                'Rujukan Hospital Swasta'
-              ),
-              path: '/private-admin',
-              icon: (
-                <Building2 className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'External Radiographer Hub',
-                'Hab Juruxray Luar'
-              ),
-              path: '/external-radiographer',
-              icon: (
-                <ClipboardList className="w-[18px] h-[18px]" />
-              ),
-            },
-          ],
-        },
-        {
-          title: t(
-            'SYSTEM',
-            'SISTEM'
-          ),
-          items: [
-            {
-              label: t(
-                'System Reports',
-                'Laporan Sistem'
-              ),
-              path: '/reports',
-              icon: (
-                <FileText className="w-[18px] h-[18px]" />
-              ),
-            },
-            {
-              label: t(
-                'User Management',
-                'Pengurusan Pengguna'
-              ),
+              label: t('Users', 'Pengguna'),
               path: '/users',
-              icon: (
-                <UserCheck className="w-[18px] h-[18px]" />
-              ),
+              icon: <UserCheck className="w-[18px] h-[18px]" />,
             },
           ],
         },
@@ -632,13 +334,13 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
     case 'dashboard':
       return t('Dashboard', 'Papan Pemuka');
     case 'patients':
-      return t('Patient Management', 'Pengurusan Pesakit');
+      return t('Patients', 'Pesakit');
     case 'register_patient':
       return t('Register New Patient', 'Daftar Pesakit Baru');
     case 'new_case':
-      return t('New Case Registration', 'Pendaftaran Kes Baru');
+      return t('New Referral', 'Rujukan Baharu');
     case 'cases':
-      return t('All Cases Overview', 'Gambaran Keseluruhan Kes');
+      return t('Cases & Status', 'Kes & Status');
     case 'reporting':
       return t('Diagnostic Hub & Reports', 'Hab Diagnostik & Laporan');
     case 'patient_requests':
@@ -646,7 +348,7 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
     case 'track_status':
       return t('Track Case Status', 'Jejak Status Kes');
     case 'scan_queue':
-      return t('My Cases', 'Senarai Tugas Saya');
+      return t('Scan & Upload', 'Imbas & Muat Naik');
     case 'upload_scans':
       return t('Upload Scans', 'Muat Naik Imbasan');
     case 'credentials':
@@ -664,9 +366,9 @@ function getLocalizedModuleLabel(id: string, defaultLabel: string, t: (en: strin
     case 'fleet':
       return t('Mobile Fleet Management', 'Pengurusan Armada');
     case 'clinics':
-      return t('Clinic & Machine Management', 'Pengurusan Klinik & Mesin');
+      return t('Clinics & Machines', 'Klinik & Mesin');
     case 'users':
-      return t('User Management', 'Pengurusan Pengguna');
+      return t('Users', 'Pengguna');
     case 'announcements':
       return t('System Broadcasts', 'Siaran Sistem');
     case 'analytics':
@@ -767,9 +469,15 @@ export default function Sidebar({
     'credentials',
     'patient_requests',
     'reports',
+    'track_status',
+    'upload_scans',
   ]);
   let activeKeys = (roleNavigationConfig?.[effectiveRole] || DEFAULT_ROLE_NAV_CONFIG[effectiveRole] || []).filter(
-    (k) => !excludedNavKeys.has(k) && !k.startsWith('marketplace_')
+    (k) =>
+      !excludedNavKeys.has(k) &&
+      !k.startsWith('marketplace_') &&
+      !(effectiveRole === 'Medical Officer' && (k === 'reporting' || k === 'register_patient' || k === 'new_case')) &&
+      !((effectiveRole === 'Administrator' || effectiveRole === 'Super Admin') && (k === 'patients' || k === 'cases'))
   );
   if (effectiveRole === 'BEMS Officer' || effectiveRole === 'BEMS' || effectiveRole === 'BEMZ') {
     activeKeys = activeKeys.filter((k) => k !== 'bems');
@@ -989,34 +697,11 @@ export default function Sidebar({
               className={`
                 transition-all duration-300
                 ${gi > 0
-                  ? 'mt-4'
+                  ? 'mt-0.5'
                   : ''
                 }
               `}
             >
-
-              {/* Section Title */}
-
-              <p
-                className={`
-                  px-3
-                  mb-1.5
-                  text-[10px]
-                  font-semibold
-                  text-[#6B8580]
-                  uppercase
-                  tracking-wider
-                  whitespace-nowrap
-                  overflow-hidden
-                  transition-all duration-200
-                  ${collapsed
-                    ? 'opacity-0 h-0 mb-0'
-                    : 'opacity-100 h-auto'
-                  }
-                `}
-              >
-                {group.title}
-              </p>
 
               <div className="space-y-0.5">
 

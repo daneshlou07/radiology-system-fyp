@@ -331,20 +331,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Demo Login Helpers (Kept internal for programmatic tests)
+  // Quick Role Switcher Helper
   const loginAsRole = (role: UserRole) => {
     let target: User | null = null;
     try {
       const custom = localStorage.getItem('healthgrid_custom_users');
       if (custom) {
         const list: User[] = JSON.parse(custom);
-        target = list.find((u) => u.role === role) || null;
+        target = list.find((u) => u.role === role && u.status !== 'inactive') || null;
       }
     } catch {}
-    if (target) {
-      saveUserSession(target);
-      recordLoginAudit(target);
+    if (!target) {
+      const fallbackProfiles: Partial<Record<UserRole, { id: string; name: string; email: string }>> = {
+        'Medical Officer': { id: 'quick-mo', name: 'Dr. Aiman Hakim', email: 'mo@healthgrid.my' },
+        'Radiographer': { id: 'quick-rad', name: 'Ahmad Razak', email: 'radiographer@healthgrid.my' },
+        'Radiologist': { id: 'quick-radiologist', name: 'Dr. Farah Nadia', email: 'radiologist@healthgrid.my' },
+        'Administrator': { id: 'quick-admin', name: 'Tan Wei Ming', email: 'admin@healthgrid.my' },
+        'Super Admin': { id: 'quick-super-admin', name: 'Danesh Lou', email: 'daneshlou05@gmail.com' },
+      };
+      const profile = fallbackProfiles[role] || {
+        id: `quick-${role.toLowerCase().replace(/\s+/g, '-')}`,
+        name: role,
+        email: `${role.toLowerCase().replace(/\s+/g, '.')}@healthgrid.my`,
+      };
+      target = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
     }
+    saveUserSession(target);
+    recordLoginAudit(target);
   };
 
   const loginAsUser = (userId: string) => {

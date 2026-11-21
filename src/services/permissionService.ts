@@ -21,9 +21,9 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   },
   {
     id: 'patients',
-    label: 'Patient Registry',
+    label: 'Patients',
     category: 'Clinical Core',
-    description: 'Patient directory, demographics, and clinical history repository.',
+    description: 'Search or register patients by IC number and start referrals.',
     defaultPath: '/patients',
     iconName: 'Users',
   },
@@ -37,17 +37,17 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   },
   {
     id: 'new_case',
-    label: 'New Case Registration',
+    label: 'New Referral',
     category: 'Clinical Core',
-    description: 'Clinical order intake form to request diagnostic imaging for a patient.',
+    description: 'Digital radiology referral form (PER.SS-RA301) with facility picker.',
     defaultPath: '/cases/new',
     iconName: 'FilePlus2',
   },
   {
     id: 'cases',
-    label: 'All Medical Cases',
+    label: 'Cases & Status',
     category: 'Clinical Core',
-    description: 'Searchable clinical case repository with status, modality, and facility filters.',
+    description: 'Searchable clinical case repository and 4-stage status tracker.',
     defaultPath: '/cases',
     iconName: 'FolderOpen',
   },
@@ -79,11 +79,11 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   // Imaging & Technical
   {
     id: 'scan_queue',
-    label: 'My Cases',
+    label: 'Scan & Upload',
     category: 'Imaging & Technical',
-    description: 'Unified radiographer workspace with appointment worklist, hourly timetable, and scan queue.',
+    description: 'Priority scan queue with patient check-in, scan notes, and JPEG/PNG image upload.',
     defaultPath: '/scan-queue',
-    iconName: 'Calendar',
+    iconName: 'Upload',
   },
   {
     id: 'upload_scans',
@@ -153,9 +153,9 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   },
   {
     id: 'clinics',
-    label: 'Clinic Management',
+    label: 'Clinics & Machines',
     category: 'Operations & Fleet',
-    description: 'Manage clinic locations, opening hours, facilities, and contact details.',
+    description: 'Manage clinic locations and machine status.',
     defaultPath: '/clinics',
     iconName: 'Building',
   },
@@ -163,9 +163,9 @@ export const ALL_NAV_MODULES: NavModuleDefinition[] = [
   // Administration & Governance
   {
     id: 'users',
-    label: 'User Directory',
+    label: 'Users',
     category: 'Administration & Governance',
-    description: 'Manage staff accounts, credentials, system roles, and clinical assignments.',
+    description: 'Manage staff accounts and roles.',
     defaultPath: '/users',
     iconName: 'Users',
   },
@@ -202,26 +202,19 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   'Medical Officer': [
     'dashboard',
     'patients',
-    'register_patient',
-    'new_case',
     'cases',
-    'track_status',
-    'reporting',
   ],
   'Radiographer': [
     'dashboard',
     'scan_queue',
-    'upload_scans',
   ],
   'Public Hospital Radiographer': [
     'dashboard',
     'scan_queue',
-    'upload_scans',
   ],
   'Private Hospital Radiographer': [
     'dashboard',
     'scan_queue',
-    'upload_scans',
   ],
   'Radiologist': [
     'dashboard',
@@ -247,15 +240,11 @@ export const DEFAULT_ROLE_NAV_CONFIG: RoleNavigationConfig = {
   'Administrator': [
     'dashboard',
     'clinics',
-    'patients',
-    'cases',
     'users',
   ],
   'Super Admin': [
     'dashboard',
     'clinics',
-    'patients',
-    'cases',
     'users',
   ],
 };
@@ -272,17 +261,6 @@ export function loadRoleNavConfig(): RoleNavigationConfig {
     for (const [role, keys] of Object.entries(parsed)) {
       if (Array.isArray(keys)) {
         const filtered = keys.filter((k: string) => validModuleIds.has(k));
-        if (
-          (role === 'Radiographer' || role === 'Public Hospital Radiographer' || role === 'Private Hospital Radiographer') &&
-          !filtered.includes('upload_scans')
-        ) {
-          const sqIdx = filtered.indexOf('scan_queue');
-          if (sqIdx !== -1) {
-            filtered.splice(sqIdx + 1, 0, 'upload_scans');
-          } else {
-            filtered.splice(1, 0, 'upload_scans');
-          }
-        }
         if (role === 'Radiologist') {
           // Ensure reporting is immediately after dashboard
           const rIdx = filtered.indexOf('reporting');

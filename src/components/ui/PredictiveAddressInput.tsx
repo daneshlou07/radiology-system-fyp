@@ -31,9 +31,15 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const justSelectedRef = useRef(false);
 
   // Debounced address search execution
   useEffect(() => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+
     if (!value || value.trim().length < 2) {
       setSuggestions([]);
       setIsOpen(false);
@@ -93,6 +99,7 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
       }
     }
 
+    justSelectedRef.current = true;
     onChange(suggestion.formattedAddress, { lat, lon });
     setSelectedGeo({ lat, lon });
     setIsOpen(false);
@@ -135,13 +142,13 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
   const getTypeBadge = (type: AddressSuggestion['type']) => {
     switch (type) {
       case 'hospital':
-        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">Hospital</span>;
+        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 shrink-0">Hospital</span>;
       case 'landmark':
-        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">Landmark</span>;
+        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">Landmark</span>;
       case 'taman':
-        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">Taman / Area</span>;
+        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">Area</span>;
       default:
-        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800">Street</span>;
+        return <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">Street</span>;
     }
   };
 
@@ -161,7 +168,7 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
             if (suggestions.length > 0) setIsOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          className={`${className} pl-9 pr-20`}
+          className={`${className} pl-9 pr-16`}
           placeholder={placeholder}
           autoComplete="off"
         />
@@ -175,7 +182,7 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
             <button
               type="button"
               onClick={() => onChange('')}
-              className="p-1 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 rounded-full transition-colors"
+              className="p-1 text-surface-400 hover:text-surface-700 rounded-full transition-colors"
               title="Clear input"
             >
               <X className="w-3.5 h-3.5" />
@@ -187,14 +194,7 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
 
       {/* Floating Suggestions Dropdown */}
       {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1 bg-white/95 dark:bg-surface-900/95 backdrop-blur-md border border-surface-200 dark:border-surface-700 rounded-lg shadow-2xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-surface-100 dark:divide-surface-800 animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-1.5 bg-[#F1F8F6] dark:bg-surface-800/80 flex items-center justify-between text-[11px] font-semibold text-[#0F4C42]">
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#0F4C42]" /> Google Places & Malaysian Registry
-            </span>
-            <span className="text-[10px] text-surface-500 font-normal">{suggestions.length} matched</span>
-          </div>
-
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-surface-200 rounded-lg shadow-lg overflow-hidden max-h-72 overflow-y-auto divide-y divide-surface-100">
           {suggestions.map((item, index) => {
             const isSelected = index === selectedIndex;
             return (
@@ -202,16 +202,17 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
                 key={item.id}
                 onClick={() => handleSelectSuggestion(item)}
                 onMouseEnter={() => setSelectedIndex(index)}
-                className={`px-3.5 py-2.5 cursor-pointer flex items-start gap-2.5 transition-colors ${isSelected
-                  ? 'bg-[#F1F8F6] text-[#0F4C42]'
-                  : 'hover:bg-surface-50 dark:hover:bg-surface-800/60 text-surface-700 dark:text-surface-200'
-                  }`}
+                className={`px-3.5 py-2.5 cursor-pointer flex items-start gap-2.5 transition-colors ${
+                  isSelected
+                    ? 'bg-[#EFF6F3] text-[#0F4C42]'
+                    : 'bg-white hover:bg-surface-50 text-surface-800'
+                }`}
               >
-                <div className="mt-0.5 p-1 rounded-md bg-surface-100 dark:bg-surface-800 shrink-0 text-surface-500">
+                <div className="mt-0.5 p-1 rounded-md bg-surface-100 shrink-0 text-surface-500">
                   {item.type === 'hospital' ? (
-                    <Building2 className="w-3.5 h-3.5 text-rose-500" />
+                    <Building2 className="w-3.5 h-3.5 text-rose-600" />
                   ) : item.type === 'landmark' ? (
-                    <Map className="w-3.5 h-3.5 text-amber-500" />
+                    <Map className="w-3.5 h-3.5 text-amber-600" />
                   ) : (
                     <MapPin className="w-3.5 h-3.5 text-[#0F4C42]" />
                   )}
@@ -219,14 +220,14 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <p className="text-xs font-medium truncate text-surface-900 dark:text-surface-100">
+                    <p className="text-xs font-medium truncate text-surface-900">
                       {item.formattedAddress}
                     </p>
                     {getTypeBadge(item.type)}
                   </div>
                   {item.postcode || item.state ? (
-                    <p className="text-[11px] text-surface-400 truncate">
-                      {[item.areaOrTaman, item.city, item.postcode, item.state].filter(Boolean).join(' • ')}
+                    <p className="text-[11px] text-surface-500 truncate">
+                      {[item.areaOrTaman, item.city, item.postcode, item.state].filter(Boolean).join(', ')}
                     </p>
                   ) : null}
                 </div>
@@ -236,18 +237,13 @@ export const PredictiveAddressInput: React.FC<PredictiveAddressInputProps> = ({
         </div>
       )}
 
-      {/* Geocoding Status Badge */}
-      <div className="mt-1 flex items-center justify-between text-[10px] text-surface-400">
-        <span className="flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-[#0F4C42] inline shrink-0" />
-          <span>Google Places predictions &middot; Real-time AI routing coordinates.</span>
-        </span>
-        {selectedGeo?.lat && selectedGeo?.lon && (
-          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-            <Check className="w-3 h-3" /> Geocoded
+      {selectedGeo?.lat && selectedGeo?.lon && (
+        <div className="mt-1 flex items-center justify-end text-[10px]">
+          <span className="flex items-center gap-1 text-emerald-700 font-medium">
+            <Check className="w-3 h-3" /> Location pinned
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

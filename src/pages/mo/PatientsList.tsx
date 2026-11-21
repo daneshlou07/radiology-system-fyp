@@ -1,57 +1,66 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { Users, Plus, Search } from 'lucide-react';
+import { Users, Plus, Search, FilePlus2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { normalizeNric, formatNric } from '../../utils/malaysianNric';
 
 function displayNric(nric: string): string {
-  if (!nric) return '—';
+  if (!nric) return '-';
 
   const digits = normalizeNric(nric);
   return digits.length === 12 ? formatNric(digits) : nric;
+}
+
+function getPatientSortTime(p: { id: string; createdAt?: string }): number {
+  if (p.createdAt) {
+    const parsed = Date.parse(p.createdAt);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const match = p.id.match(/patient-(\d{10,})/);
+  if (match) return Number(match[1]);
+  return 0;
 }
 
 export default function PatientsList() {
   const { currentUser } = useAuth();
   const { patients, cases, getScopedCases } = useData();
   const [search, setSearch] = useState('');
-  const scopedCases = getScopedCases ? getScopedCases() : cases;
+  const rawScopedCases = getScopedCases ? getScopedCases() : cases;
+  const scopedCases = currentUser?.id?.startsWith('quick-') ? cases : rawScopedCases;
 
   const userCenterId = currentUser?.healthcareCenterId || currentUser?.deploymentLocationId;
   const isPlatformOfficer = currentUser?.role === 'Super Admin' || currentUser?.role === 'BEMS Officer';
 
   const visiblePatients = useMemo(() => {
-    if (isPlatformOfficer || !userCenterId) return patients;
-    const authorizedPatientIds = new Set(scopedCases.map((c) => c.patientId));
-    return patients.filter((p) => {
-      const isLocalOrigin = (p.registeredAtCenterId || p.clinicId || p.primaryClinicId) === userCenterId;
-      const isReferredPatient = authorizedPatientIds.has(p.id);
-      return isLocalOrigin || isReferredPatient;
-    });
-  }, [patients, scopedCases, userCenterId, isPlatformOfficer]);
+    let list = patients;
+    if (!isPlatformOfficer && userCenterId && !currentUser?.id?.startsWith('quick-')) {
+      const authorizedPatientIds = new Set(scopedCases.map((c) => c.patientId));
+      list = patients.filter((p) => {
+        const isLocalOrigin = (p.registeredAtCenterId || p.clinicId || p.primaryClinicId) === userCenterId;
+        const isReferredPatient = authorizedPatientIds.has(p.id);
+        return isLocalOrigin || isReferredPatient;
+      });
+    }
+    return [...list].sort((a, b) => getPatientSortTime(b) - getPatientSortTime(a));
+  }, [patients, scopedCases, userCenterId, isPlatformOfficer, currentUser?.id]);
 
-  const filtered = visiblePatients.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.mrn.toLowerCase().includes(search.toLowerCase()) ||
-      p.nric.includes(search)
-  );
+  const normalizedSearch = normalizeNric(search);
+  const filtered = visiblePatients.filter((p) => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.mrn.toLowerCase().includes(q) ||
+      p.nric.includes(q) ||
+      (normalizedSearch.length > 0 && normalizeNric(p.nric).includes(normalizedSearch))
+    );
+  });
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="page-title">Patients</h1>
-
-          <p className="page-subtitle">
-            Manage registered patients and their associated cases.
-          </p>
-        </div>
-
-        {/* Page Actions */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      {/* Page Actions */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <Search
@@ -61,7 +70,7 @@ export default function PatientsList() {
 
             <input
               type="text"
-              placeholder="Search patients..."
+              placeholder="Search by IC or name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search patients"
@@ -81,7 +90,6 @@ export default function PatientsList() {
 
             <span>Register Patient</span>
           </Link>
-        </div>
       </div>
 
       {/* Patient Table */}
@@ -92,23 +100,37 @@ export default function PatientsList() {
               <tr className="border-b border-surface-300">
                 <th
                   scope="col"
-                  className="table-header w-[48%]"
+                  className="table-header w-[34%]"
                 >
                   Patient Name
                 </th>
 
                 <th
                   scope="col"
-                  className="table-header w-[32%]"
+                  className="table-header w-[22%]"
                 >
                   IC Number
                 </th>
 
                 <th
                   scope="col"
-                  className="table-header w-[20%]"
+                  className="table-header w-[18%]"
+                >
+                  Phone
+                </th>
+
+                <th
+                  scope="col"
+                  className="table-header w-[10%]"
                 >
                   Cases
+                </th>
+
+                <th
+                  scope="col"
+                  className="table-header w-[16%] text-right"
+                >
+                  Action
                 </th>
               </tr>
             </thead>
@@ -140,9 +162,25 @@ export default function PatientsList() {
                     </td>
 
                     <td className="table-cell">
+                      <span className="text-[13px] text-surface-600">
+                        {patient.phone || '-'}
+                      </span>
+                    </td>
+
+                    <td className="table-cell">
                       <span className="font-medium text-surface-900">
                         {caseCount}
                       </span>
+                    </td>
+
+                    <td className="table-cell text-right">
+                      <Link
+                        to={`/cases/new?patientId=${patient.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EFF6F3] text-[#0F4C42] border border-[#0F4C42]/20 hover:bg-[#0F4C42] hover:text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                      >
+                        <FilePlus2 className="w-3.5 h-3.5" />
+                        <span>New Referral</span>
+                      </Link>
                     </td>
                   </tr>
                 );

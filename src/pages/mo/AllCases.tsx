@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
@@ -6,29 +7,29 @@ import TabFilter from '../../components/ui/TabFilter';
 import BulkActionBar from '../../components/ui/BulkActionBar';
 import {
   Search,
-  Plus,
   X,
   ChevronLeft,
   ChevronRight,
   FileText,
-  ArrowRight,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getCaseIndication } from '../../utils/caseDisplay';
 import { exportToCSV } from '../../utils/exportUtils';
 import { useToast } from '../../components/ux/Toast';
 
 const STATUS_GROUPS: Record<string, string[] | null> = {
   'All Cases': null,
-  'Pending Triage': ['CREATED', 'SCHEDULED'],
-  'In Progress': ['SCANNED', 'REPORTED'],
-  Completed: ['FINALIZED'],
+  Scheduled: ['CREATED', 'CASE_CREATED', 'SCHEDULING', 'RADIOGRAPHER_ASSIGNED', 'READY_FOR_SCAN', 'SCHEDULED'],
+  Scanned: ['SCANNING', 'IMAGES_AVAILABLE', 'SCANNED'],
+  'Under Review': ['RADIOLOGIST_REVIEW', 'MO_REVIEW', 'REPORTED'],
+  Completed: ['REPORT_SUBMITTED', 'COMPLETED', 'FINALIZED'],
 };
 
 const TABS = [
   'All Cases',
-  'Pending Triage',
-  'In Progress',
+  'Scheduled',
+  'Scanned',
+  'Under Review',
   'Completed',
 ];
 
@@ -64,8 +65,11 @@ function getAvatarColor(name: string): string {
 }
 
 export default function AllCases() {
+  const { currentUser } = useAuth();
   const { cases, getScopedCases } = useData();
-  const scopedCases = getScopedCases ? getScopedCases() : cases;
+  const navigate = useNavigate();
+  const rawScoped = getScopedCases ? getScopedCases() : cases;
+  const scopedCases = currentUser?.id?.startsWith('quick-') ? cases : rawScoped;
   const toast = useToast();
 
   const [activeTab, setActiveTab] = useState('All Cases');
@@ -163,30 +167,6 @@ export default function AllCases() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="page-title">Cases Queue</h1>
-
-          <p className="page-subtitle">
-            {cases.length} referral cases · Review incoming clinical
-            cases, manage status, and access diagnostic records.
-          </p>
-        </div>
-
-        <Link
-          to="/cases/new"
-          className="btn-primary"
-        >
-          <Plus
-            className="h-4 w-4"
-            aria-hidden="true"
-          />
-
-          <span>Register New Case</span>
-        </Link>
-      </div>
-
       {/* Queue Toolbar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <TabFilter
@@ -236,22 +216,9 @@ export default function AllCases() {
       {/* Cases Table */}
       <div className="card overflow-hidden p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] text-left">
+          <table className="w-full text-left">
             <thead>
               <tr>
-                <th
-                  scope="col"
-                  className="table-header w-12"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isAllSelected}
-                    onChange={toggleSelectAll}
-                    aria-label="Select all cases"
-                    className="table-checkbox"
-                  />
-                </th>
-
                 <th scope="col" className="table-header">
                   Case #
                 </th>
@@ -261,15 +228,11 @@ export default function AllCases() {
                 </th>
 
                 <th scope="col" className="table-header">
-                  Indication / Symptom
+                  Indication
                 </th>
 
                 <th scope="col" className="table-header">
                   Modality
-                </th>
-
-                <th scope="col" className="table-header">
-                  Assigned To
                 </th>
 
                 <th scope="col" className="table-header">
@@ -281,48 +244,26 @@ export default function AllCases() {
                 </th>
 
                 <th scope="col" className="table-header">
-                  Date & Time
-                </th>
-
-                <th
-                  scope="col"
-                  className="table-header text-right"
-                >
-                  Actions
+                  Date
                 </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-surface-200">
               {paginatedCases.map((c) => {
-                const isSelected = selectedIds.includes(c.id);
                 const indication = getCaseIndication(c);
-                const avatarStyle = getAvatarColor(c.patientName);
-                const initials = getInitials(c.patientName);
 
                 return (
                   <tr
                     key={c.id}
-                    className={`transition-colors ${isSelected
-                        ? 'bg-[#F0F7F5]'
-                        : 'hover:bg-surface-100/70'
-                      }`}
+                    onClick={() => navigate(`/case/${c.id}`)}
+                    className="cursor-pointer transition-colors hover:bg-surface-100/70"
                   >
-                    {/* Selection */}
-                    <td className="table-cell-dense">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(c.id)}
-                        aria-label={`Select ${c.caseNumber}`}
-                        className="table-checkbox"
-                      />
-                    </td>
-
                     {/* Case Number */}
                     <td className="table-cell-dense whitespace-nowrap">
                       <Link
                         to={`/case/${c.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="font-medium text-navy-600 transition-colors hover:text-navy-700 hover:underline"
                       >
                         {c.caseNumber}
@@ -331,73 +272,30 @@ export default function AllCases() {
 
                     {/* Patient */}
                     <td className="table-cell-dense whitespace-nowrap">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${avatarStyle}`}
-                        >
-                          {initials}
-                        </div>
-
-                        <div className="min-w-0">
-                          <Link
-                            to={`/patient/${c.patientId}`}
-                            className="block truncate font-medium text-surface-900 transition-colors hover:text-navy-600 hover:underline"
-                          >
-                            {c.patientName}
-                          </Link>
-
-                          <span className="mt-0.5 block text-[11px] font-normal leading-4 text-surface-500">
-                            MRN: {c.patientId
-                              ? c.patientId.slice(0, 8)
-                              : 'N/A'}
-                          </span>
-                        </div>
-                      </div>
+                      <Link
+                        to={`/patient/${c.patientId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="block truncate font-medium text-surface-900 transition-colors hover:text-navy-600 hover:underline"
+                      >
+                        {c.patientName}
+                      </Link>
                     </td>
 
                     {/* Indication */}
-                    <td className="table-cell-dense max-w-[220px]">
+                    <td className="table-cell-dense max-w-[200px]">
                       <div
                         className="truncate font-normal text-surface-700"
                         title={indication}
                       >
                         {indication || '—'}
                       </div>
-
-                      {c.bodyRegion && (
-                        <span className="mt-0.5 block truncate text-[11px] leading-4 text-surface-500">
-                          Region: {c.bodyRegion}
-                        </span>
-                      )}
                     </td>
 
                     {/* Modality */}
-                    <td className="table-cell-dense whitespace-nowrap">
-                      <span
-                        className="inline-flex max-w-[160px] truncate rounded-md bg-surface-100 px-2.5 py-1 text-[12px] font-medium text-surface-700"
-                        title={c.scanType}
-                      >
+                    <td className="table-cell-dense">
+                      <span className="text-[12px] font-medium text-surface-700">
                         {c.scanType}
                       </span>
-                    </td>
-
-                    {/* Assigned To */}
-                    <td className="table-cell-dense whitespace-nowrap">
-                      {c.radiographerName ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-semibold text-emerald-700">
-                            {getInitials(c.radiographerName)}
-                          </div>
-
-                          <span className="font-normal text-surface-700">
-                            {c.radiographerName}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="badge-warning">
-                          Unassigned
-                        </span>
-                      )}
                     </td>
 
                     {/* Severity */}
@@ -429,30 +327,6 @@ export default function AllCases() {
                           year: 'numeric',
                         })}
                       </div>
-
-                      <div className="mt-0.5 text-[11px] leading-4 text-surface-500">
-                        {new Date(
-                          c.createdAt
-                        ).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-                    </td>
-
-                    {/* Action */}
-                    <td className="table-cell-dense whitespace-nowrap text-right">
-                      <Link
-                        to={`/case/${c.id}`}
-                        className="table-action"
-                      >
-                        <span>View</span>
-
-                        <ArrowRight
-                          className="h-3.5 w-3.5"
-                          aria-hidden="true"
-                        />
-                      </Link>
                     </td>
                   </tr>
                 );
@@ -528,7 +402,7 @@ export default function AllCases() {
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="h-8 rounded-lg border border-surface-300 bg-white px-2 text-[12px] text-surface-700 focus:border-[#0F4C42] focus:outline-none focus:ring-2 focus:ring-[#0F4C42]/15"
+                  className="h-8 rounded-lg border border-surface-300 bg-white px-2 text-[12px] text-surface-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>

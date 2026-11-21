@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../components/ux/Toast';
@@ -65,6 +66,7 @@ export default function PatientRegistration() {
 
   const [idType, setIdType] = useState<IdType>('mykad');
   const [submitting, setSubmitting] = useState(false);
+  const [lastRegisteredPatient, setLastRegisteredPatient] = useState<{ id: string; name: string; mrn: string } | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -394,10 +396,11 @@ export default function PatientRegistration() {
         }
       }
 
-      await addPatient(patientData);
+      const created = await addPatient(patientData);
+      setLastRegisteredPatient({ id: created.id, name: form.name, mrn: mrnGenerated });
 
       toast.success(
-        `${form.name} registered successfully — MRN: ${mrnGenerated}`
+        `${form.name} registered successfully (MRN: ${mrnGenerated})`
       );
 
       setForm({
@@ -437,6 +440,26 @@ export default function PatientRegistration() {
       {/* =========================================================
           PAGE HEADER
       ========================================================== */}
+
+      {lastRegisteredPatient && (
+        <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-emerald-900">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">{lastRegisteredPatient.name} registered</p>
+              <p className="text-xs text-emerald-700">MRN: {lastRegisteredPatient.mrn}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/patients" className="btn-secondary text-xs">
+              Back to Patients
+            </Link>
+            <Link to={`/cases/new?patientId=${lastRegisteredPatient.id}`} className="btn-primary text-xs">
+              Create Referral
+            </Link>
+          </div>
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}

@@ -262,7 +262,7 @@ export default function CaseDetail() {
           <div className="flex items-center gap-2 shrink-0">
             {!isBemz && caseItem.status === 'SCHEDULED' && (
               <Link
-                to={`/upload?caseId=${caseItem.id}`}
+                to={`/scan-queue?caseId=${caseItem.id}`}
                 className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
                 title="Upload medical scans for this case"
               >
@@ -270,7 +270,7 @@ export default function CaseDetail() {
                 <span>Upload Scan</span>
               </Link>
             )}
-            {!isBemz && caseItem.status === 'FINALIZED' && report && (
+            {!isBemz && (caseItem.status === 'FINALIZED' || caseItem.status === 'COMPLETED' || caseItem.status === 'REPORT_SUBMITTED') && report && (
               <button
                 onClick={() => setShowReportModal(true)}
                 className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
@@ -524,7 +524,7 @@ export default function CaseDetail() {
 
                 {report.suggestions && (
                   <div>
-                    <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Recommendations &amp; Follow-up</p>
+                    <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Recommendation</p>
                     <div className="bg-surface-50 border border-surface-200 rounded-lg p-3 text-sm text-surface-700 whitespace-pre-line">
                       {report.suggestions}
                     </div>

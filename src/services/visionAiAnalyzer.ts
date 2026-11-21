@@ -173,15 +173,18 @@ Return ONLY a valid, raw JSON object (without markdown code blocks) with the fol
   "discrepancyAlert": "Explanation if visual pathology contradicts or significantly exceeds the mild referral notes, otherwise empty string"
 }`;
 
-      // Gemini candidate model cascade
-      const candidateModels = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+      // Real, fast Gemini Flash models with a 15s timeout per attempt
+      const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
       for (const model of candidateModels) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         try {
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
           const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               contents: [
                 {
@@ -199,11 +202,12 @@ Return ONLY a valid, raw JSON object (without markdown code blocks) with the fol
               generationConfig: {
                 temperature: 0.15,
                 topP: 0.85,
-                maxOutputTokens: 2500,
+                maxOutputTokens: 1200,
                 responseMimeType: 'application/json',
               },
             }),
           });
+          clearTimeout(timeoutId);
 
           if (response.ok) {
             const data = await response.json();
@@ -221,7 +225,7 @@ Return ONLY a valid, raw JSON object (without markdown code blocks) with the fol
                 detectedFeatures: Array.isArray(parsed.detectedFeatures) ? parsed.detectedFeatures : ['Anatomical structures evaluated'],
                 confidenceScore: typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 96.5,
                 processingTimeMs: Math.round(endTime - startTime),
-                aiModel: `Gemini ${model} (MOH Selayang Clinical CDSS)`,
+                aiModel: `Gemini ${model}`,
                 isCritical: Boolean(parsed.isCritical),
                 criticalReason: parsed.criticalReason || undefined,
                 clinicalCorrelationNotes: parsed.clinicalCorrelationNotes || undefined,
@@ -231,6 +235,7 @@ Return ONLY a valid, raw JSON object (without markdown code blocks) with the fol
             }
           }
         } catch (modelErr) {
+          clearTimeout(timeoutId);
           console.warn(`Gemini model ${model} attempt failed:`, modelErr);
         }
       }

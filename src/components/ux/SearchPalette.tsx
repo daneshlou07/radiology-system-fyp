@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, User, FolderOpen, FileText, ArrowRight } from 'lucide-react';
+import { Search, User, FolderOpen, FileText } from 'lucide-react';
 import { getPatients, getCases, getReports } from '../../services/dataService';
+import { useAuth } from '../../context/AuthContext';
 
 interface SearchResult { id: string; type: string; title: string; subtitle?: string; path: string; }
 interface SearchPaletteContextValue { isOpen: boolean; open: () => void; close: () => void; toggle: () => void; }
@@ -33,6 +34,7 @@ export function useSearchPalette(): SearchPaletteContextValue {
 
 function PaletteOverlay({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -49,12 +51,63 @@ function PaletteOverlay({ onClose }: { onClose: () => void }) {
       const q = query.toLowerCase();
       const [patients, cases, reports] = await Promise.all([getPatients(), getCases(), getReports()]);
       const r: SearchResult[] = [];
-      patients.filter((p) => p.name.toLowerCase().includes(q) || p.mrn.toLowerCase().includes(q)).slice(0, 4).forEach((p) => r.push({ id: p.id, type: 'patient', title: p.name, subtitle: p.mrn, path: '/patients' }));
-      cases.filter((c) => c.caseNumber.toLowerCase().includes(q) || c.patientName.toLowerCase().includes(q)).slice(0, 4).forEach((c) => r.push({ id: c.id, type: 'case', title: c.caseNumber, subtitle: `${c.patientName} — ${c.scanType}`, path: '/cases' }));
-      reports.filter((rep) => rep.caseNumber.toLowerCase().includes(q) || rep.patientName.toLowerCase().includes(q)).slice(0, 3).forEach((rep) => r.push({ id: rep.id, type: 'report', title: rep.caseNumber, subtitle: rep.patientName, path: '/reports' }));
-      setResults(r); setSelectedIdx(0);
+      const role = currentUser?.role;
+
+      patients
+        .filter((p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.nric || '').toLowerCase().includes(q) ||
+          (p.mrn || '').toLowerCase().includes(q)
+        )
+        .slice(0, 4)
+        .forEach((p) =>
+          r.push({
+            id: p.id,
+            type: 'patient',
+            title: p.name,
+            subtitle: p.nric || p.mrn,
+            path: `/patient/${p.id}`,
+          })
+        );
+
+      cases
+        .filter((c) => c.caseNumber.toLowerCase().includes(q) || c.patientName.toLowerCase().includes(q))
+        .slice(0, 4)
+        .forEach((c) => {
+          const casePath = role?.includes('Radiographer')
+            ? `/scan-queue?caseId=${c.id}`
+            : role === 'Radiologist'
+            ? `/review-queue?caseId=${c.id}`
+            : `/case/${c.id}`;
+          r.push({
+            id: c.id,
+            type: 'case',
+            title: c.caseNumber,
+            subtitle: `${c.patientName} (${c.scanType})`,
+            path: casePath,
+          });
+        });
+
+      reports
+        .filter((rep) => rep.caseNumber.toLowerCase().includes(q) || rep.patientName.toLowerCase().includes(q))
+        .slice(0, 3)
+        .forEach((rep) => {
+          const reportPath = role === 'Radiologist'
+            ? `/review-queue?caseId=${rep.caseId}`
+            : `/case/${rep.caseId}`;
+          r.push({
+            id: rep.id,
+            type: 'report',
+            title: rep.caseNumber,
+            subtitle: rep.patientName,
+            path: reportPath,
+          });
+        });
+
+      setResults(r);
+      setSelectedIdx(0);
     }, 200);
-  }, [query]);
+  }, [query, currentUser?.role]);
 
   const handleSelect = (result: SearchResult) => { navigate(result.path); onClose(); };
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -81,7 +134,6 @@ function PaletteOverlay({ onClose }: { onClose: () => void }) {
             <button key={r.id} onClick={() => handleSelect(r)} className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${idx === selectedIdx ? 'bg-navy-50' : 'hover:bg-surface-100'}`}>
               {icons[r.type] || <Search className="w-4 h-4 text-surface-400" />}
               <div className="flex-1 min-w-0"><p className="text-sm font-medium text-surface-800 truncate">{r.title}</p>{r.subtitle && <p className="text-xs text-surface-500 truncate">{r.subtitle}</p>}</div>
-              <ArrowRight className="w-3.5 h-3.5 text-surface-400 flex-shrink-0" />
             </button>
           ))}
         </div>

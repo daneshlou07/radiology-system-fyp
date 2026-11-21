@@ -25,7 +25,6 @@ export default function SignedReports() {
     <div className="space-y-6">
       <div>
         <h1 className="page-title">Imaging Completed</h1>
-        <p className="page-subtitle">{myReports.length} reports submitted</p>
       </div>
 
       <div className="relative max-w-sm">

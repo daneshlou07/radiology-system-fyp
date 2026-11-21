@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import ImpersonationBanner from '../common/ImpersonationBanner';
 import ErrorBoundary from '../ux/ErrorBoundary';
 import SessionTimeout from '../ux/SessionTimeout';
 import PageLoader from '../ux/PageLoader';
@@ -20,7 +19,6 @@ export default function MainLayout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-surface-100 relative">
-      <ImpersonationBanner />
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
         {/* Mobile sidebar overlay */}
       {!isMarketplaceWebsiteMode && sidebarOpen && (

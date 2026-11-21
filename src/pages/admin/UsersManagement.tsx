@@ -28,9 +28,9 @@ const ROLES: UserRole[] = [
   'Radiographer',
   'Radiologist',
   'Administrator',
-  'BEMS Officer',
-  'Super Admin',
 ];
+
+const CORE_ROLE_SET = new Set<string>(ROLES);
 
 const ORGANIZATION_TYPES: HealthcareOrganizationType[] = [
   'Klinik Kesihatan',
@@ -38,7 +38,25 @@ const ORGANIZATION_TYPES: HealthcareOrganizationType[] = [
   'Private Hospital',
 ];
 
-type AccountStatusFilter = 'all' | 'active' | 'inactive' | 'deleted';
+type AccountStatusFilter = 'all' | 'active' | 'inactive';
+
+function deduplicateClinics(list: Clinic[]): Clinic[] {
+  const seenCoords = new Set<string>();
+  const result: Clinic[] = [];
+  const hasTanjongKarang = list.some((c) => c.name.toLowerCase().includes('tanjong karang'));
+  for (const c of list) {
+    const lower = (c.name || '').toLowerCase();
+    if (hasTanjongKarang && lower.includes('tanjong karong')) continue;
+    const coordKey =
+      typeof c.latitude === 'number' && typeof c.longitude === 'number'
+        ? `${c.latitude.toFixed(3)},${c.longitude.toFixed(3)}`
+        : c.id;
+    if (seenCoords.has(coordKey)) continue;
+    seenCoords.add(coordKey);
+    result.push(c);
+  }
+  return result;
+}
 
 interface TrackedAccount extends User {
   isDeleted?: boolean;
@@ -107,21 +125,14 @@ export default function UsersManagement() {
   const isSuperOrMaster =
     currentUser?.role === 'Super Admin' || isMasterAdmin;
 
-  const allowedCreationRoles: UserRole[] = isSuperOrMaster
-    ? [
-      'Medical Officer',
-      'Radiographer',
-      'Radiologist',
-      'Administrator',
-      'BEMS Officer',
-      'Super Admin',
-    ]
-    : [
-      'Medical Officer',
-      'Radiographer',
-      'Radiologist',
-      'Administrator',
-    ];
+  const uniqueClinics = useMemo(() => deduplicateClinics(clinics), [clinics]);
+
+  const allowedCreationRoles: UserRole[] = [
+    'Medical Officer',
+    'Radiographer',
+    'Radiologist',
+    'Administrator',
+  ];
 
   // =========================================================
   // ACCOUNT REGISTRY
@@ -173,8 +184,7 @@ export default function UsersManagement() {
   // VISIBILITY / PERMISSIONS
   // =========================================================
 
-  const visibleAccounts = allAccounts.filter((u) => {
-    // Master Admin root system account is always hidden from User Management list
+  const visibleAccounts = activeAndInactiveAccounts.filter((u) => {
     if (
       u.email === 'daneshlou05@gmail.com' ||
       u.id === 'admin-master'
@@ -182,8 +192,7 @@ export default function UsersManagement() {
       return false;
     }
 
-    // Standard Administrators cannot see Super Admin
-    if (!isSuperOrMaster && u.role === 'Super Admin') {
+    if (!CORE_ROLE_SET.has(u.role)) {
       return false;
     }
 
@@ -195,14 +204,8 @@ export default function UsersManagement() {
   // =========================================================
 
   const filteredAccounts = visibleAccounts.filter((u) => {
-    // Status
-    if (statusFilter === 'deleted') {
-      if (!u.isDeleted) return false;
-    } else {
-      if (u.isDeleted) return false;
-      if (statusFilter === 'active' && u.status !== 'active') return false;
-      if (statusFilter === 'inactive' && u.status !== 'inactive') return false;
-    }
+    if (statusFilter === 'active' && u.status !== 'active') return false;
+    if (statusFilter === 'inactive' && u.status !== 'inactive') return false;
 
     // Role
     if (roleFilter !== 'all') {
@@ -218,12 +221,6 @@ export default function UsersManagement() {
     if (centerFilter !== 'all') {
       const uCenter = u.healthcareCenterId || u.deploymentLocationId;
       if (uCenter !== centerFilter) return false;
-    }
-
-    // Shift
-    if (shiftFilter !== 'all') {
-      const accShift = u.shift || (u.role === 'Super Admin' || u.role === 'BEMS Officer' ? '' : 'Day');
-      if (accShift !== shiftFilter) return false;
     }
 
     // Search
@@ -252,22 +249,18 @@ export default function UsersManagement() {
   const totalAccountsEver = trackedAccountsForStats.length;
 
   const activeCount = trackedAccountsForStats.filter(
-    (u) => !u.isDeleted && u.status === 'active'
+    (u) => u.status === 'active'
   ).length;
 
   const inactiveCount = trackedAccountsForStats.filter(
-    (u) => !u.isDeleted && u.status === 'inactive'
+    (u) => u.status === 'inactive'
   ).length;
 
-  const deletedCount = trackedAccountsForStats.filter((u) => u.isDeleted).length;
-
-  // Accounts filtered by current status tab for real-time synchronized card counts
   const accountsForRoleCounts = useMemo(() => {
     return visibleAccounts.filter((u) => {
-      if (statusFilter === 'active') return !u.isDeleted && u.status === 'active';
-      if (statusFilter === 'inactive') return !u.isDeleted && u.status === 'inactive';
-      if (statusFilter === 'deleted') return u.isDeleted;
-      return !u.isDeleted;
+      if (statusFilter === 'active') return u.status === 'active';
+      if (statusFilter === 'inactive') return u.status === 'inactive';
+      return true;
     });
   }, [visibleAccounts, statusFilter]);
 
@@ -565,37 +558,12 @@ export default function UsersManagement() {
 
   // Clinics filtered strictly by current form organizationType in modal
   const formEligibleClinics = useMemo(() => {
-    if (!form.organizationType) return clinics;
-    return clinics.filter((c) => resolveClinicOrgType(c) === form.organizationType);
-  }, [clinics, form.organizationType]);
+    if (!form.organizationType) return uniqueClinics;
+    return uniqueClinics.filter((c) => resolveClinicOrgType(c) === form.organizationType);
+  }, [uniqueClinics, form.organizationType]);
 
   return (
     <div className="space-y-6">
-      {/* =====================================================
-          HEADER & ACTIONS
-      ====================================================== */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-surface-900 tracking-tight">
-            User Management & Access Governance
-          </h1>
-          <p className="text-sm text-surface-500 mt-0.5">
-            Manage system roles, organization types, and healthcare center affiliations.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openCreate}
-            className="btn-primary flex items-center gap-1.5 text-xs font-semibold shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            New Account
-          </button>
-        </div>
-      </div>
-
       {/* =====================================================
           CREDENTIAL NOTIFICATION BANNER
       ====================================================== */}
@@ -617,8 +585,8 @@ export default function UsersManagement() {
                   )}
                 </div>
                 <p className="text-xs text-emerald-800">
-                  Email: <span className="font-mono font-semibold">{createdCredentials.email}</span> |
-                  Healthcare Center: <span className="font-semibold">{createdCredentials.center || 'Platform / Central'}</span> |
+                  Email: <span className="font-mono font-semibold">{createdCredentials.email}</span>,{' '}
+                  Healthcare Center: <span className="font-semibold">{createdCredentials.center || 'Central'}</span>,{' '}
                   Temp Password: <span className="font-mono bg-white px-2 py-0.5 rounded border border-emerald-300 font-bold">{createdCredentials.pass}</span>
                 </p>
               </div>
@@ -633,15 +601,15 @@ export default function UsersManagement() {
           )}
 
           {/* =====================================================
-              TOP QUICK ROLE CARDS (6 ROLES ONLY)
+              TOP QUICK ROLE CARDS (4 CORE ROLES)
           ====================================================== */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Medical Officer */}
             <button
               type="button"
               onClick={() => setRoleFilter(roleFilter === 'Medical Officer' ? 'all' : 'Medical Officer')}
               className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Medical Officer'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+                ? 'border-emerald-300 bg-emerald-50/60'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
             >
@@ -659,7 +627,7 @@ export default function UsersManagement() {
               type="button"
               onClick={() => setRoleFilter(roleFilter === 'Radiographer' ? 'all' : 'Radiographer')}
               className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Radiographer'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+                ? 'border-emerald-300 bg-emerald-50/60'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
             >
@@ -677,7 +645,7 @@ export default function UsersManagement() {
               type="button"
               onClick={() => setRoleFilter(roleFilter === 'Radiologist' ? 'all' : 'Radiologist')}
               className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Radiologist'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+                ? 'border-emerald-300 bg-emerald-50/60'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
             >
@@ -695,7 +663,7 @@ export default function UsersManagement() {
               type="button"
               onClick={() => setRoleFilter(roleFilter === 'Administrator' ? 'all' : 'Administrator')}
               className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Administrator'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
+                ? 'border-emerald-300 bg-emerald-50/60'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
             >
@@ -707,54 +675,15 @@ export default function UsersManagement() {
                 <p className="text-lg font-bold text-amber-700">{countForRole('Administrator')}</p>
               </div>
             </button>
-
-            {/* BEMS Officer */}
-            <button
-              type="button"
-              onClick={() => setRoleFilter(roleFilter === 'BEMS Officer' ? 'all' : 'BEMS Officer')}
-              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'BEMS Officer'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
-                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                }`}
-            >
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
-                <Wrench className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-surface-600 truncate">BEMS Officer</p>
-                <p className="text-lg font-bold text-orange-700">{countForRole('BEMS Officer')}</p>
-              </div>
-            </button>
-
-            {/* Super Admin */}
-            <button
-              type="button"
-              onClick={() => setRoleFilter(roleFilter === 'Super Admin' ? 'all' : 'Super Admin')}
-              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${roleFilter === 'Super Admin'
-                ? 'border-[#0F4C42] bg-emerald-50/50 ring-1 ring-[#0F4C42]/20 shadow-xs'
-                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                }`}
-            >
-              <div className="w-9 h-9 shrink-0 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-surface-600 truncate">Super Admin</p>
-                <p className="text-lg font-bold text-blue-700">{countForRole('Super Admin')}</p>
-              </div>
-            </button>
           </div>
 
           {/* =====================================================
               FILTER PANEL
           ====================================================== */}
           <div className="card p-4 space-y-3">
-            {/* Status Tabs */}
+            {/* Status Tabs & New Account Button */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-100 pb-3">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-2 text-[10px] font-bold uppercase tracking-wider text-surface-400">
-                  Status
-                </span>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
@@ -785,31 +714,31 @@ export default function UsersManagement() {
                 >
                   Inactive ({inactiveCount})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter('deleted')}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${statusFilter === 'deleted'
-                    ? 'bg-red-100 text-red-800'
-                    : 'text-surface-600 hover:bg-surface-100'
-                    }`}
-                >
-                  Archived / Deleted ({deletedCount})
-                </button>
               </div>
 
-              {hasActiveFilters && (
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-3 py-1.5 text-xs font-semibold text-surface-500 hover:text-navy-700 hover:bg-surface-100 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Clear Filters
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={clearFilters}
-                  className="px-3 py-1.5 text-xs font-semibold text-surface-500 hover:text-navy-700 hover:bg-surface-100 rounded-lg transition-colors whitespace-nowrap"
+                  onClick={openCreate}
+                  className="btn-primary flex items-center gap-1.5 text-xs font-semibold"
                 >
-                  Clear Filters
+                  <Plus className="w-4 h-4" />
+                  New Account
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Dropdown Filters & Search */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               {/* Search */}
               <div className="relative">
                 <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -845,7 +774,7 @@ export default function UsersManagement() {
                   onChange={(e) => {
                     setOrgTypeFilter(e.target.value);
                     if (e.target.value !== 'all' && centerFilter !== 'all') {
-                      const c = clinics.find((cl) => cl.id === centerFilter);
+                      const c = uniqueClinics.find((cl) => cl.id === centerFilter);
                       if (c && c.organizationType !== e.target.value) {
                         setCenterFilter('all');
                       }
@@ -870,29 +799,13 @@ export default function UsersManagement() {
                   className="select-field text-xs"
                 >
                   <option value="all">All Healthcare Centers</option>
-                  {clinics
-                    .filter((c) => orgTypeFilter === 'all' || c.organizationType === orgTypeFilter)
+                  {uniqueClinics
+                    .filter((c) => orgTypeFilter === 'all' || resolveClinicOrgType(c) === orgTypeFilter)
                     .map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
                     ))}
-                </select>
-              </div>
-
-              {/* Shift Filter */}
-              <div>
-                <select
-                  value={shiftFilter}
-                  onChange={(e) => setShiftFilter(e.target.value)}
-                  className="select-field text-xs"
-                >
-                  <option value="all">All Shifts</option>
-                  <option value="Day">Day / Standard (08:00 – 17:00)</option>
-                  <option value="Morning">Morning Shift (07:30 – 14:30)</option>
-                  <option value="Evening">Evening Shift (14:00 – 21:30)</option>
-                  <option value="Night">Night Shift / On-Call (21:00 – 08:00)</option>
-                  <option value="Extended">Extended Hours (08:00 – 21:30)</option>
                 </select>
               </div>
             </div>
@@ -960,18 +873,10 @@ export default function UsersManagement() {
                         <span className="font-medium text-surface-700 truncate block">{displayCenter}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-surface-400 block">Shift</span>
-                        <span className="font-medium text-surface-700">{account.shift || 'Day (08:00–17:00)'}</span>
-                      </div>
-                      <div>
                         <span className="text-[10px] text-surface-400 block">Status</span>
-                        {account.isDeleted ? (
-                          <span className="badge-error text-[10px]">Archived</span>
-                        ) : (
-                          <span className={account.status === 'active' ? 'badge-success text-[10px]' : 'badge-warning text-[10px]'}>
-                            {account.status}
-                          </span>
-                        )}
+                        <span className={account.status === 'active' ? 'badge-success text-[10px]' : 'badge-warning text-[10px]'}>
+                          {account.status}
+                        </span>
                       </div>
                     </div>
 
@@ -1050,7 +955,6 @@ export default function UsersManagement() {
                     <th className="table-header">Organization Type</th>
                     <th className="table-header">Healthcare Center</th>
                     <th className="table-header">Status</th>
-                    <th className="table-header">Shift</th>
                     <th className="table-header text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1058,24 +962,18 @@ export default function UsersManagement() {
                 <tbody className="divide-y divide-surface-200">
                   {filteredAccounts.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-surface-400 text-sm">
+                      <td colSpan={7} className="text-center py-8 text-surface-400 text-sm">
                         No accounts match the selected criteria.
                       </td>
                     </tr>
                   ) : (
                     filteredAccounts.map((account) => {
                       const isMaster = account.email === 'daneshlou05@gmail.com';
-                      const isSuper = account.role === 'Super Admin';
-                      const isUntied = isMaster || isSuper;
-                      const clinic = isUntied ? null : clinics.find(
+                      const clinic = clinics.find(
                         (c) => c.id === (account.healthcareCenterId || account.deploymentLocationId)
                       );
-                      const displayOrgType = isUntied ? 'National / Central' : (account.organizationType || clinic?.organizationType || (
-                        account.role === 'BEMS Officer' ? 'Central / Platform' : '—'
-                      ));
-                      const displayCenter = isUntied ? 'National (Untied)' : (clinic ? clinic.name : (
-                        account.healthcareCenterName || (account.role === 'BEMS Officer' ? 'Platform / Central' : '—')
-                      ));
+                      const displayOrgType = account.organizationType || clinic?.organizationType || '-';
+                      const displayCenter = clinic ? clinic.name : (account.healthcareCenterName || '-');
                       const displayName = isMaster ? 'Danesh' : account.name;
 
                       return (
@@ -1144,45 +1042,15 @@ export default function UsersManagement() {
 
                           {/* Status */}
                           <td className="table-cell">
-                            {account.isDeleted ? (
-                              <div className="flex flex-col">
-                                <span className="badge-error text-[10px] w-fit">
-                                  Archived / Deleted
-                                </span>
-                                {account.deletedAt && (
-                                  <span className="text-[9px] text-surface-400 mt-0.5">
-                                    {new Date(account.deletedAt).toLocaleDateString()} ({account.deletedBy || 'System'})
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span
-                                className={
-                                  account.status === 'active'
-                                    ? 'badge-success text-[10px]'
-                                    : 'badge-warning text-[10px]'
-                                }
-                              >
-                                {account.status}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Shift */}
-                          <td className="table-cell text-xs text-surface-600 whitespace-nowrap">
-                            {account.role === 'Super Admin' || account.role === 'BEMS Officer' ? (
-                              <span className="text-surface-400">—</span>
-                            ) : account.shift === 'Morning' ? (
-                              'Morning (07:30–14:30)'
-                            ) : account.shift === 'Evening' ? (
-                              'Evening (14:00–21:30)'
-                            ) : account.shift === 'Night' ? (
-                              'Night (21:00–08:00)'
-                            ) : account.shift === 'Extended' ? (
-                              'Extended (08:00–21:30)'
-                            ) : (
-                              'Day (08:00–17:00)'
-                            )}
+                            <span
+                              className={
+                                account.status === 'active'
+                                  ? 'badge-success text-[10px]'
+                                  : 'badge-warning text-[10px]'
+                              }
+                            >
+                              {account.status}
+                            </span>
                           </td>
 
                           {/* Actions */}
@@ -1397,34 +1265,6 @@ export default function UsersManagement() {
                     No healthcare center classified as "{form.organizationType}" is registered yet. Add one in Healthcare Management first.
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* Shift (Context-Aware based on Facility & Organization Type) */}
-            {form.role !== 'Super Admin' && form.role !== 'BEMS Officer' && (
-              <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">
-                  Shift / Duty Roster
-                </label>
-                <select
-                  value={form.shift || 'Day'}
-                  onChange={(e) => setForm({ ...form, shift: e.target.value })}
-                  className="select-field"
-                >
-                  {form.organizationType === 'Klinik Kesihatan' ? (
-                    <>
-                      <option value="Day">Day / Standard Hours (08:00 – 17:00)</option>
-                      <option value="Extended">Extended Hours (08:00 – 21:30)</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Morning">Morning Shift (07:30 – 14:30)</option>
-                      <option value="Evening">Evening Shift (14:00 – 21:30)</option>
-                      <option value="Night">Night Shift / On-Call (21:00 – 08:00)</option>
-                      <option value="Day">Day / General (08:00 – 17:00)</option>
-                    </>
-                  )}
-                </select>
               </div>
             )}
 

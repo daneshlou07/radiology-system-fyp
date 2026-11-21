@@ -533,12 +533,63 @@ let googleAutocompleteService: google.maps.places.AutocompleteService | null = n
 
 /**
  * Fetch real-time Malaysian address predictions from Google Places Autocomplete API
+ * Supports both Places API (New) and Legacy Places AutocompleteService.
  */
 async function fetchGooglePlacesSuggestions(query: string): Promise<AddressSuggestion[]> {
   try {
     const g = await loadGoogleMapsSDK();
-    if (!g || !g.maps || !g.maps.places) return [];
+    if (!g || !g.maps) return [];
 
+    // 1. Try Places API (New) — default for new Google Cloud projects
+    try {
+      const placesLib = (await (g.maps as any).importLibrary?.('places')) || g.maps.places;
+      const AutocompleteSuggestion = placesLib?.AutocompleteSuggestion;
+      if (AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
+        const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: query,
+          includedRegionCodes: ['my'],
+        });
+        if (Array.isArray(suggestions) && suggestions.length > 0) {
+          return suggestions
+            .map((s: any, idx: number) => {
+              const pred = s.placePrediction;
+              if (!pred) return null;
+              const fullText = pred.text?.text || '';
+              const mainText = pred.mainText?.text || '';
+              const secondaryText = pred.secondaryText?.text || 'Malaysia';
+              const types: string[] = pred.types || [];
+              let type: AddressSuggestion['type'] = 'street';
+              if (types.includes('hospital') || types.includes('health') || types.includes('doctor')) {
+                type = 'hospital';
+              } else if (
+                types.includes('sublocality') ||
+                types.includes('neighborhood') ||
+                types.includes('administrative_area_level_3')
+              ) {
+                type = 'taman';
+              } else if (types.includes('point_of_interest') || types.includes('establishment')) {
+                type = 'landmark';
+              }
+
+              return {
+                id: pred.placeId || `gplace-new-${idx}-${Date.now()}`,
+                formattedAddress: fullText || `${mainText}, ${secondaryText}`,
+                street: mainText,
+                city: secondaryText,
+                state: 'Malaysia',
+                type,
+                source: 'api' as const,
+              };
+            })
+            .filter(Boolean) as AddressSuggestion[];
+        }
+      }
+    } catch (newApiErr) {
+      console.warn('Places API (New) unavailable, trying legacy AutocompleteService:', newApiErr);
+    }
+
+    // 2. Fallback to legacy Places AutocompleteService
+    if (!g.maps.places?.AutocompleteService) return [];
     if (!googleAutocompleteService) {
       googleAutocompleteService = new g.maps.places.AutocompleteService();
     }
@@ -627,6 +678,10 @@ export async function searchMalaysianAddresses(query: string): Promise<AddressSu
       combinedResults = [...nomResults];
     }
 
+    // Preserve typed house/lot number prefix when OSM/Photon only returns the street
+    const housePrefixMatch = trimmed.match(/^((?:no\.?\s*|lot\s*)?\d+[a-zA-Z]?(?:-\d+)?)\s*,?\s+/i);
+    const housePrefix = housePrefixMatch ? housePrefixMatch[1].trim() : '';
+
     // Merge API results with local results, avoiding exact duplicates
     const existingAddresses = new Set(combinedResults.map((r) => r.formattedAddress.toLowerCase()));
     for (const loc of localResults) {
@@ -635,7 +690,19 @@ export async function searchMalaysianAddresses(query: string): Promise<AddressSu
       }
     }
 
-    return combinedResults.slice(0, 8);
+    const withHouseNumber = housePrefix
+      ? combinedResults.map((item) => {
+          if (item.formattedAddress.toLowerCase().startsWith(housePrefix.toLowerCase())) {
+            return item;
+          }
+          return {
+            ...item,
+            formattedAddress: `${housePrefix}, ${item.formattedAddress}`,
+          };
+        })
+      : combinedResults;
+
+    return withHouseNumber.slice(0, 8);
   } catch (error) {
     // If network fails, gracefully return local database matches
     return localResults;

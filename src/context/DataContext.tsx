@@ -958,6 +958,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const data = clean({
       ...p,
       id,
+      createdAt: p.createdAt || new Date().toISOString(),
       registeredById: p.registeredById || currentUser?.id,
       registeredByName: p.registeredByName || currentUser?.name,
       registeredByRole: p.registeredByRole || currentUser?.role,
@@ -970,7 +971,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clinicId: p.clinicId || registeredAtCenterId,
       clinicName: p.clinicName || registeredAtCenterName,
     }) as Patient;
-    setPatients((prev) => [...prev, data]);
+    setPatients((prev) => [data, ...prev]);
     const db = getFirestoreDb();
     if (db) {
       try {

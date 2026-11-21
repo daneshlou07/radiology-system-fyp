@@ -164,6 +164,7 @@ export interface Patient {
   preferredClinicName?: string;
   clinicId?: string;
   clinicName?: string;
+  createdAt?: string;
   /** Registration Origin & Attribution */
   registeredById?: string;
   registeredByName?: string;

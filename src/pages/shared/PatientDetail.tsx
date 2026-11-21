@@ -1,14 +1,16 @@
 import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import StatusBadge from '../../components/ui/StatusBadge';
 import SeverityBadge from '../../components/ui/SeverityBadge';
 import { getCaseIndication } from '../../utils/caseDisplay';
-import { ArrowLeft, User, FolderOpen, FileText, MapPin, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, User, FolderOpen, FileText, MapPin, Phone, Mail, FilePlus2 } from 'lucide-react';
 
 export default function PatientDetail() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const { patients, cases, reports, addRecentItem } = useData();
 
   const patient = patients.find((p) => p.id === patientId);
@@ -25,14 +27,21 @@ export default function PatientDetail() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-surface-100 rounded-lg transition-colors">
-          <ArrowLeft className="w-4 h-4 text-surface-500" />
-        </button>
-        <div>
-          <h1 className="page-title">{patient.name}</h1>
-          <p className="page-subtitle">{patient.mrn} &middot; {patient.nric}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-surface-100 rounded-lg transition-colors">
+            <ArrowLeft className="w-4 h-4 text-surface-500" />
+          </button>
+          <div>
+            <h1 className="page-title">{patient.name}</h1>
+          </div>
         </div>
+        {currentUser?.role === 'Medical Officer' && (
+          <Link to={`/cases/new?patientId=${patient.id}`} className="btn-primary text-xs">
+            <FilePlus2 className="w-4 h-4" />
+            <span>New Referral</span>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

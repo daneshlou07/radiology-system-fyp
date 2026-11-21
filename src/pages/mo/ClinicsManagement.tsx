@@ -25,13 +25,33 @@ import {
   Layers,
 } from 'lucide-react';
 
-const MODALITIES = ['X-Ray', 'CT', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy'];
+const MODALITIES = ['X-Ray', 'Ultrasound', 'CT', 'MRI'];
 
 const ORGANIZATION_TYPES: HealthcareOrganizationType[] = [
   'Klinik Kesihatan',
   'Public Hospital',
   'Private Hospital',
 ];
+
+function deduplicateClinics(list: Clinic[]): Clinic[] {
+  const seenCoords = new Set<string>();
+  const result: Clinic[] = [];
+  const hasTanjongKarang = list.some((c) => c.name.toLowerCase().includes('tanjong karang'));
+
+  for (const c of list) {
+    const lower = (c.name || '').toLowerCase();
+    if (hasTanjongKarang && lower.includes('tanjong karong')) continue;
+
+    const coordKey =
+      typeof c.latitude === 'number' && typeof c.longitude === 'number'
+        ? `${c.latitude.toFixed(3)},${c.longitude.toFixed(3)}`
+        : c.id;
+    if (seenCoords.has(coordKey)) continue;
+    seenCoords.add(coordKey);
+    result.push(c);
+  }
+  return result;
+}
 
 /**
  * Robust Google Maps & standard coordinate parser.
@@ -95,13 +115,15 @@ export default function ClinicsManagement() {
     email: '',
     latitude: '',
     longitude: '',
-    modalities: [] as string[],
-    machineStatus: {},
-    operatingHours: '08:00 – 17:00',
+    modalities: [...MODALITIES],
+    machineStatus: { 'X-Ray': 'Active', Ultrasound: 'Active', CT: 'Active', MRI: 'Active' },
+    operatingHours: '08:00 - 17:00',
   });
 
+  const uniqueClinics = useMemo(() => deduplicateClinics(clinics), [clinics]);
+
   const filtered = useMemo(() => {
-    return clinics.filter((c) => {
+    return uniqueClinics.filter((c) => {
       const matchesSearch =
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.address.toLowerCase().includes(search.toLowerCase()) ||
@@ -122,7 +144,7 @@ export default function ClinicsManagement() {
 
       return true;
     });
-  }, [clinics, search, selectedOrgType]);
+  }, [uniqueClinics, search, selectedOrgType]);
 
   const openCreate = () => {
     setEditing(null);
@@ -136,9 +158,9 @@ export default function ClinicsManagement() {
       email: '',
       latitude: '',
       longitude: '',
-      modalities: [],
-      machineStatus: {},
-      operatingHours: '08:00 – 17:00',
+      modalities: [...MODALITIES],
+      machineStatus: { 'X-Ray': 'Active', Ultrasound: 'Active', CT: 'Active', MRI: 'Active' },
+      operatingHours: '08:00 - 17:00',
     });
     setShowModal(true);
   };
@@ -148,7 +170,7 @@ export default function ClinicsManagement() {
     const coords = clinic.latitude && clinic.longitude ? `${clinic.latitude}, ${clinic.longitude}` : '';
     setRawCoordinates(coords);
     const initialMachines: Record<string, 'Active' | 'Maintenance'> = {};
-    (clinic.supportedModalities || []).forEach((m) => {
+    MODALITIES.forEach((m) => {
       initialMachines[m] = clinic.machineStatus?.[m] || 'Active';
     });
     setForm({
@@ -166,9 +188,9 @@ export default function ClinicsManagement() {
       email: clinic.email || '',
       latitude: String(clinic.latitude),
       longitude: String(clinic.longitude),
-      modalities: clinic.supportedModalities || [],
+      modalities: [...MODALITIES],
       machineStatus: initialMachines,
-      operatingHours: clinic.operatingHours || '08:00 – 17:00',
+      operatingHours: clinic.operatingHours || '08:00 - 17:00',
     });
     setShowModal(true);
   };
@@ -271,7 +293,7 @@ export default function ClinicsManagement() {
       details: `Moved to trash: ${clinic.name}`,
       timestamp: new Date().toISOString(),
     });
-    toast.success(`${clinic.name} moved to Recycle Bin`);
+    toast.success(`${clinic.name} removed`);
   };
 
   const toggleModality = (mod: string) => {
@@ -295,6 +317,7 @@ export default function ClinicsManagement() {
     const next: 'Active' | 'Maintenance' = current === 'Active' ? 'Maintenance' : 'Active';
     const updated: Clinic = {
       ...clinic,
+      supportedModalities: [...MODALITIES],
       machineStatus: {
         ...(clinic.machineStatus || {}),
         [mod]: next,
@@ -302,24 +325,13 @@ export default function ClinicsManagement() {
     };
     setClinics((prev) => prev.map((c) => (c.id === clinic.id ? updated : c)));
     await saveClinic(updated);
-    toast.info(`${clinic.name} — ${mod} set to ${next}`);
+    toast.info(`${clinic.name}: ${mod} set to ${next}`);
   };
 
   return (
     <div className="space-y-6">
-      {/* Page Title & Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-surface-900 tracking-tight">Clinic & Machine Management</h1>
-          <p className="text-sm text-surface-500 mt-0.5">Manage clinics, hospitals, and scan machine status (Active or Maintenance).</p>
-        </div>
-        <button onClick={openCreate} className="btn-primary text-sm flex items-center gap-1.5 shadow-sm self-start sm:self-auto">
-          <Plus className="w-4 h-4" /> Add Healthcare Center
-        </button>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="card p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      {/* Filter, Search & Add Bar */}
+      <div className="card p-3.5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
           <input
@@ -331,11 +343,8 @@ export default function ClinicsManagement() {
           />
         </div>
 
-        {/* Organization Type Filters */}
+        {/* Organization Type Filters & Add Button */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-surface-400 mr-1">
-            Type:
-          </span>
           <button
             type="button"
             onClick={() => setSelectedOrgType('all')}
@@ -345,10 +354,10 @@ export default function ClinicsManagement() {
                 : 'text-surface-600 hover:bg-surface-100'
             }`}
           >
-            All ({clinics.length})
+            All ({uniqueClinics.length})
           </button>
           {ORGANIZATION_TYPES.map((org) => {
-            const count = clinics.filter((c) => {
+            const count = uniqueClinics.filter((c) => {
               const cOrg = c.organizationType || (
                 c.name.toLowerCase().includes('kpj') || c.name.toLowerCase().includes('sunway')
                   ? 'Private Hospital'
@@ -378,6 +387,9 @@ export default function ClinicsManagement() {
               </button>
             );
           })}
+          <button onClick={openCreate} className="btn-primary text-xs flex items-center gap-1.5 ml-1">
+            <Plus className="w-4 h-4" /> Add Center
+          </button>
         </div>
       </div>
 
@@ -432,29 +444,27 @@ export default function ClinicsManagement() {
                   <div className="text-[10px] text-surface-400 pt-1 font-mono">
                     Lat: {clinic.latitude?.toFixed ? clinic.latitude.toFixed(4) : clinic.latitude}, Lon: {clinic.longitude?.toFixed ? clinic.longitude.toFixed(4) : clinic.longitude}
                   </div>
-                  {clinic.supportedModalities && clinic.supportedModalities.length > 0 && (
-                    <div className="pt-2 flex flex-wrap gap-1.5">
-                      {clinic.supportedModalities.map((mod) => {
-                        const mStatus = clinic.machineStatus?.[mod] || 'Active';
-                        const isMaint = mStatus === 'Maintenance';
-                        return (
-                          <button
-                            key={mod}
-                            type="button"
-                            onClick={() => toggleMachineStatus(clinic, mod)}
-                            title={`Click to toggle ${mod} between Active and Maintenance`}
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer ${
-                              isMaint
-                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                          >
-                            {mod}: {mStatus}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="pt-2 flex flex-wrap gap-1.5">
+                    {MODALITIES.map((mod) => {
+                      const mStatus = clinic.machineStatus?.[mod] || 'Active';
+                      const isMaint = mStatus === 'Maintenance';
+                      return (
+                        <button
+                          key={mod}
+                          type="button"
+                          onClick={() => toggleMachineStatus(clinic, mod)}
+                          title={`Click to toggle ${mod} between Active and Maintenance`}
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors cursor-pointer ${
+                            isMaint
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {mod}: {mStatus}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -754,7 +764,7 @@ export default function ClinicsManagement() {
             </div>
           </div>
           <p className="text-xs text-surface-600">
-            This healthcare center will be removed from active clinic listings and stored in the <strong>Recycle Bin</strong> where administrators can review or restore it if needed.
+            This healthcare center will be removed from the active clinic list.
           </p>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setDeletingClinic(null)} className="btn-secondary text-xs">Cancel</button>

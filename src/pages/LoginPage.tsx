@@ -5,7 +5,7 @@ import { Eye, EyeOff, X } from 'lucide-react';
 type ForgotStep = 'email' | 'sent';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginAsRole } = useAuth();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -231,6 +231,25 @@ export default function LoginPage() {
               {isLoggingIn ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          {/* Quick Role Switcher */}
+          <div className="pt-4 border-t border-[#E2E8F0]">
+            <p className="text-[12px] font-medium text-[#64748B] mb-2.5">
+              Quick Role Switcher
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['Medical Officer', 'Radiographer', 'Radiologist', 'Administrator'] as const).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => loginAsRole(role)}
+                  className="py-2 px-3 bg-[#F8FAFC] hover:bg-[#EFF6F3] border border-[#CBD5E1] hover:border-[#0A5236] rounded-[6px] text-[13px] font-medium text-[#1E293B] hover:text-[#0A5236] transition-colors cursor-pointer"
+                >
+                  {role === 'Administrator' ? 'Admin' : role}
+                </button>
+              ))}
+            </div>
+          </div>
 
         </main>
       </div>

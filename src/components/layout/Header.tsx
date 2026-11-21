@@ -8,6 +8,7 @@ import { useToast } from '../ux/Toast';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Search, User, Lock, LogOut, ChevronDown, Camera, AlertTriangle, Clock, Megaphone, Info, Globe, BookOpen, PanelLeftClose, PanelLeft, ShieldCheck, Bot, Sparkles, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { saveUser } from '../../services/dataService';
 import Modal from '../ui/Modal';
 import ClinicalGlossaryModal from '../ui/ClinicalGlossaryModal';
 
@@ -147,7 +148,7 @@ function inferNotificationPriority(notification: NotificationView, category: Not
   return 'normal';
 }
 
-function inferNotificationAction(notification: NotificationView, category: NotifCategory) {
+function inferNotificationAction(notification: NotificationView, category: NotifCategory, userRole?: string) {
   if (notification.actionType || notification.actionTarget) {
     return {
       actionType: notification.actionType || 'navigate',
@@ -155,31 +156,31 @@ function inferNotificationAction(notification: NotificationView, category: Notif
     } as const;
   }
 
-  const text = `${notification.title} ${notification.message}`.toLowerCase();
-
   if (category === 'critical') {
     return { actionType: 'critical' as const, actionTarget: undefined };
   }
 
-  // These paths match the main HealthGrid IQ workflows used by the current demo.
-  if (category === 'patient_requests') {
-    return { actionType: 'navigate' as const, actionTarget: '/patient-requests' };
-  }
-
   if (category === 'scheduling') {
-    return { actionType: 'navigate' as const, actionTarget: '/scheduler' };
+    const target = userRole?.includes('Radiographer')
+      ? '/scan-queue'
+      : userRole === 'Medical Officer'
+      ? '/cases'
+      : '/dashboard';
+    return { actionType: 'navigate' as const, actionTarget: target };
   }
 
   if (category === 'equipment') {
-    return { actionType: 'navigate' as const, actionTarget: '/mobile-pacs' };
+    const target = userRole === 'Administrator' || userRole === 'Super Admin' ? '/clinics' : '/dashboard';
+    return { actionType: 'navigate' as const, actionTarget: target };
   }
 
   if (category === 'reports') {
-    const caseMatch = text.match(/(?:case|study)\s+([a-z0-9-]+)/i);
-    return {
-      actionType: 'navigate' as const,
-      actionTarget: caseMatch?.[1] ? `/reports/${caseMatch[1]}` : '/reports',
-    };
+    const target = userRole === 'Radiologist'
+      ? '/review-queue'
+      : userRole === 'Medical Officer'
+      ? '/cases'
+      : '/dashboard';
+    return { actionType: 'navigate' as const, actionTarget: target };
   }
 
   return { actionType: 'none' as const, actionTarget: undefined };
@@ -187,7 +188,7 @@ function inferNotificationAction(notification: NotificationView, category: Notif
 
 function formatNotificationTime(date: string) {
   const timestamp = new Date(date).getTime();
-  if (Number.isNaN(timestamp)) return '—';
+  if (Number.isNaN(timestamp)) return '-';
 
   const diff = Math.max(0, Date.now() - timestamp);
   const minute = 60 * 1000;
@@ -214,7 +215,7 @@ interface HeaderProps {
 export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
   const { currentUser, logout } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearAll } = useNotifications();
-  const { cases, editCase, addAuditLog, getScopedCases } = useData();
+  const { cases, editCase, addAuditLog, getScopedCases, users, setUsers } = useData();
   const scopedCases = getScopedCases ? getScopedCases() : cases;
   const { open: openSearch } = useSearchPalette();
   const { language, toggleLanguage, t } = useLanguage();
@@ -298,13 +299,23 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
     toast.success('Profile updated');
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     setPasswordError('');
     if (!passwordForm.current) { setPasswordError('Current password is required'); return; }
+    if (currentUser.password && passwordForm.current !== currentUser.password) {
+      setPasswordError('Current password is incorrect');
+      return;
+    }
     if (passwordForm.newPass.length < 8) { setPasswordError('New password must be at least 8 characters'); return; }
     if (passwordForm.newPass !== passwordForm.confirm) { setPasswordError('New passwords do not match'); return; }
     if (passwordForm.current === passwordForm.newPass) { setPasswordError('New password must be different from current'); return; }
-    toast.success('Password changed successfully');
+
+    const updatedUser = { ...currentUser, password: passwordForm.newPass };
+    if (!currentUser.id.startsWith('quick-')) {
+      setUsers(users.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+      await saveUser(updatedUser);
+    }
+    toast.success('Password updated');
     setShowPasswordModal(false);
     setPasswordForm({ current: '', newPass: '', confirm: '' });
   };
@@ -320,7 +331,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
     const view = notification as NotificationView;
     const category = inferNotificationCategory(view);
     const priority = inferNotificationPriority(view, category);
-    const action = inferNotificationAction(view, category);
+    const action = inferNotificationAction(view, category, currentUser.role);
 
     return {
       ...view,
@@ -493,16 +504,6 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
                                   } ${isCritical ? 'border-l-2 border-l-red-500' : ''}`}
                               >
                                 <div className="flex items-start gap-3">
-                                  <span
-                                    className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isCritical
-                                        ? 'bg-red-500'
-                                        : isUnread
-                                          ? 'bg-emerald-500'
-                                          : 'bg-surface-300'
-                                      }`}
-                                    aria-hidden="true"
-                                  />
-
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-3">
                                       <p className={`text-sm leading-5 ${isUnread ? 'font-semibold text-surface-900' : 'font-medium text-surface-700'}`}>
@@ -533,7 +534,7 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
 
                                     {hasAction && (
                                       <p className="text-[10px] font-semibold text-navy-600 mt-1.5 group-hover:text-navy-800 transition-colors">
-                                        View details →
+                                        View details
                                       </p>
                                     )}
 
@@ -600,9 +601,6 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
                   <button onClick={() => { setShowProfile(false); setShowProfileModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
                     <User className="w-4 h-4 text-surface-400" /> My Profile
                   </button>
-                  <Link to="/onboarding" onClick={() => setShowProfile(false)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Clinical Credentials
-                  </Link>
                   <button onClick={() => { setShowProfile(false); setShowPasswordModal(true); setPasswordForm({ current: '', newPass: '', confirm: '' }); setPasswordError(''); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 transition-colors text-left">
                     <Lock className="w-4 h-4 text-surface-400" /> Change Password
                   </button>
@@ -645,66 +643,15 @@ export default function Header({ sidebarOpen, onToggleSidebar }: HeaderProps) {
             </div>
           </div>
 
-          {/* Credentials & Registration Section */}
+          {/* Account details */}
           <div className="pt-4 border-t border-surface-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Professional Credentials &amp; Registration</span>
-              </div>
-              <Link to="/onboarding" onClick={() => setShowProfileModal(false)} className="text-xs font-semibold text-navy-600 hover:text-navy-800 hover:underline">
-                View Full Page &rarr;
-              </Link>
-            </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Medical Registration:</span>
-                <span className="font-semibold text-slate-800">
-                  {currentUser.role === 'Radiologist' ? 'Malaysian Medical Council & NSR' : currentUser.role === 'Medical Officer' ? 'Malaysian Medical Council (MMC)' : 'Allied Health Professions Council'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Registration Number:</span>
-                <span className="font-mono font-bold text-slate-900">
-                  {currentUser.mmcNumber || (currentUser.role === 'Radiologist' ? 'NSR-129481 / MMC-48291' : currentUser.role === 'Medical Officer' ? 'MMC-84920' : 'MAHPC-99104')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Clinical Authorization:</span>
-                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Verified &amp; Active
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Digital Signature:</span>
-                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Active for Requisitions &amp; Reports
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Admin-managed fields */}
-          <div className="pt-4 border-t border-surface-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Lock className="w-3.5 h-3.5 text-surface-400" />
-              <span className="text-[10px] font-semibold text-surface-400 uppercase tracking-wider">Administrator Managed</span>
-            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div><span className="text-[10px] text-surface-400 uppercase">Full Name</span><p className="text-surface-800 font-medium">{currentUser.name}</p></div>
               <div><span className="text-[10px] text-surface-400 uppercase">Role</span><p className="text-surface-800">{currentUser.role}</p></div>
-              <div><span className="text-[10px] text-surface-400 uppercase">Shift</span><p className="text-surface-800">{currentUser.shift || '—'}</p></div>
-              <div><span className="text-[10px] text-surface-400 uppercase">Specialty</span><p className="text-surface-800">{currentUser.specialty || '—'}</p></div>
-              <div><span className="text-[10px] text-surface-400 uppercase">Employment Status</span><p><span className="badge-success text-[10px]">{currentUser.status}</span></p></div>
-              <div><span className="text-[10px] text-surface-400 uppercase">Leave Status</span><p className="text-surface-800">{currentUser.leaveStatus || 'Active'}</p></div>
-              {currentUser.supportedModalities && currentUser.supportedModalities.length > 0 && (
-                <div className="col-span-2 md:col-span-3"><span className="text-[10px] text-surface-400 uppercase">Certified Modalities</span>
-                  <div className="flex flex-wrap gap-1 mt-1">{currentUser.supportedModalities.map((m) => <span key={m} className="badge-info text-[9px]">{m}</span>)}</div>
-                </div>
-              )}
+              <div><span className="text-[10px] text-surface-400 uppercase">Specialty</span><p className="text-surface-800">{currentUser.specialty || '-'}</p></div>
+              <div><span className="text-[10px] text-surface-400 uppercase">Status</span><p><span className="badge-success text-[10px]">{currentUser.status}</span></p></div>
               <div><span className="text-[10px] text-surface-400 uppercase">Member Since</span><p className="text-surface-800">{new Date(currentUser.createdAt).toLocaleDateString()}</p></div>
             </div>
-            <p className="text-[10px] text-surface-400 mt-3 italic">These fields can only be modified by a system administrator.</p>
           </div>
         </div>
       </Modal>
